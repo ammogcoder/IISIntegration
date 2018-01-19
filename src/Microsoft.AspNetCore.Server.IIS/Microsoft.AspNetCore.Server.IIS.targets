@@ -13,7 +13,7 @@
   </PropertyGroup>
   
   <!--
-    Capability that enables Visual Studio supoort for hosting Asp.Net Core applications in the IIS process
+    Capability that enables Visual Studio support for hosting Asp.Net Core applications in the IIS process
   -->
   <ItemGroup>
     <ProjectCapability Include="AspNetInProcessHosting" />
