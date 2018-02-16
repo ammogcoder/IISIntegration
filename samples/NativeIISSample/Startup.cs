@@ -82,6 +82,7 @@ namespace NativeIISSample
             "REMOTE_PORT",
             "REMOTE_USER",
             "REQUEST_METHOD",
+            "WEBSOCKET_VERSION"
         };
 
         public static void Main(string[] args)

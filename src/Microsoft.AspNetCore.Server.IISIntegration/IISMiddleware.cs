@@ -28,8 +28,14 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
         private readonly ILogger _logger;
         private readonly string _pairingToken;
         private readonly IApplicationLifetime _applicationLifetime;
+        private readonly bool _isWebsocketsSupported;
 
         public IISMiddleware(RequestDelegate next, ILoggerFactory loggerFactory, IOptions<IISOptions> options, string pairingToken, IAuthenticationSchemeProvider authentication, IApplicationLifetime applicationLifetime)
+            : this(next, loggerFactory, options, pairingToken, true, authentication, applicationLifetime)
+        {
+        }
+
+        public IISMiddleware(RequestDelegate next, ILoggerFactory loggerFactory, IOptions<IISOptions> options, string pairingToken, bool isWebsocketsSupported, IAuthenticationSchemeProvider authentication, IApplicationLifetime applicationLifetime)
         {
             if (next == null)
             {
@@ -63,6 +69,7 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
             _pairingToken = pairingToken;
             _applicationLifetime = applicationLifetime;
             _logger = loggerFactory.CreateLogger<IISMiddleware>();
+            _isWebsocketsSupported = isWebsocketsSupported;
         }
 
         public async Task Invoke(HttpContext httpContext)
@@ -116,6 +123,11 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
                 {
                     httpContext.User = result.Principal;
                 }
+            }
+
+            if (!_isWebsocketsSupported)
+            {
+                httpContext.Features.Set<IHttpUpgradeFeature>(null);
             }
 
             await _next(httpContext);

@@ -62,6 +62,7 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
         private const string NtlmString = "NTLM";
         private const string NegotiateString = "Negotiate";
         private const string BasicString = "Basic";
+        private const string WebSocketVersionString = "WEBSOCKET_VERSION";
 
         internal unsafe IISHttpContext(MemoryPool memoryPool, IntPtr pInProcessHandler, IISOptions options)
             : base((HttpApiTypes.HTTP_REQUEST*)NativeMethods.http_get_raw_request(pInProcessHandler))
@@ -123,7 +124,7 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
                 StatusCode = 200;
 
                 RequestHeaders = new RequestHeaders(this);
-                HttpResponseHeaders = new HeaderCollection(); // TODO Optimize for known headers
+                HttpResponseHeaders = new HeaderCollection();
                 ResponseHeaders = HttpResponseHeaders;
 
                 if (options.ForwardWindowsAuthentication)
@@ -136,6 +137,12 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
                 }
 
                 ResetFeatureCollection();
+
+                NativeMethods.http_get_server_variable(pInProcessHandler, WebSocketVersionString, out var webSocketsSupported);
+                if (string.IsNullOrEmpty(webSocketsSupported) && !UpgradeAvailable)
+                {
+                    _currentIHttpUpgradeFeature = null;
+                }
             }
 
             RequestBody = new IISHttpRequestBody(this);

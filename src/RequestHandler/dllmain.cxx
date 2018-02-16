@@ -24,7 +24,8 @@ HANDLE              g_hEventLog = NULL;
 
 VOID
 InitializeGlobalConfiguration(
-    IHttpServer * pServer
+    IHttpServer * pServer,
+    ASPNETCORE_CONFIG* pConfig
 )
 {
     HKEY hKey;
@@ -114,7 +115,7 @@ InitializeGlobalConfiguration(
 
         // WebSocket is supported on Win8 and above only
         // todo: test on win7
-        g_fWebSocketSupported = IsWindows8OrGreater();
+        g_fWebSocketSupported = IsWindows8OrGreater() && pConfig->QueryWebsocketsEnabled();
 
         g_fGlobalInitialize = TRUE;
     }
@@ -283,7 +284,7 @@ CreateApplication(
     APPLICATION *pApplication = NULL;
 
     // Initialze some global variables here
-    InitializeGlobalConfiguration(pServer);
+    InitializeGlobalConfiguration(pServer, pConfig);
 
     if (pConfig->QueryHostingModel() == APP_HOSTING_MODEL::HOSTING_IN_PROCESS)
     {
