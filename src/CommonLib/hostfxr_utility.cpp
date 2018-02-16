@@ -612,19 +612,22 @@ HOSTFXR_UTILITY::FindDotnetExePath(
             {
                 break;
             }
-            if (FAILED(hr = struDotnetSubstring.Copy(struDotnetLocationsString.QueryStr(), index - prevIndex)))
+            if (FAILED(hr = struDotnetSubstring.Copy(&struDotnetLocationsString.QueryStr()[prevIndex], index - prevIndex)))
             {
                 goto Finished;
             }
-            prevIndex = index + 1;
+            prevIndex = index + 2;
 
-            if (GetBinaryTypeW(struDotnetSubstring.QueryStr(), &dwBinaryType) &&
-                fIsCurrentProcess64Bit == (dwBinaryType == SCS_64BIT_BINARY)) {
+            if (!GetBinaryTypeW(struDotnetSubstring.QueryStr(), &dwBinaryType))
+            {
+                // TODO should we ignore this failure and continue to trying the next dotnet.exe?
+                hr = HRESULT_FROM_WIN32(GetLastError());
+                goto Finished;
+            }
+            if (fIsCurrentProcess64Bit == (dwBinaryType == SCS_64BIT_BINARY))
+            {
                 // Found a valid dotnet.
-                if (FAILED(hr = struDotnetPath->Copy(struDotnetSubstring)))
-                {
-                    goto Finished;
-                }
+                struDotnetPath->Copy(struDotnetSubstring);
                 fFound = TRUE;
             }
         }
