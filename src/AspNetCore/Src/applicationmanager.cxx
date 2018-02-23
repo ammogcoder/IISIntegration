@@ -194,7 +194,14 @@ APPLICATION_MANAGER::FindConfigChangedApplication(
     _In_ APPLICATION_INFO *     pEntry,
     _In_ PVOID                  pvContext)
 {
-    return pEntry->QueryConfig()->QueryApplicationPath()->StartsWith((PCWSTR)pvContext, true);
+    CONFIG_CHANGE_CONTEXT* pContext = static_cast<CONFIG_CHANGE_CONTEXT*>(pvContext);
+    STRU* pstruConfigPath = pEntry->QueryConfig()->QueryConfigPath();
+    BOOL fChanged = pstruConfigPath->StartsWith(pContext->pstrPath, true);
+    if (fChanged)
+    {
+        pContext->MultiSz.Append(*pstruConfigPath);
+    }
+    return fChanged;
 }
 
 HRESULT
@@ -206,6 +213,7 @@ APPLICATION_MANAGER::RecycleApplication(
     APPLICATION_INFO_KEY  key;
     DWORD            dwPreviousCounter = 0;
     APPLICATION_INFO_HASH* table = NULL;
+    CONFIG_CHANGE_CONTEXT context;
 
     hr = key.Initialize(pszApplicationId);
     if (FAILED(hr))
@@ -213,12 +221,23 @@ APPLICATION_MANAGER::RecycleApplication(
         goto Finished;
     }
 
-     table = new APPLICATION_INFO_HASH();
+    table = new APPLICATION_INFO_HASH();
+
     if(table == NULL)
     {
         hr = E_OUTOFMEMORY;
         goto Finished;
     }
+
+    //
+    // few application expected, small bucket size for hash table
+    //
+    if (FAILED(hr = table->Initialize(17 /*prime*/)))
+    {
+        goto Finished;
+    }
+
+    context.pstrPath = pszApplicationId;
 
     AcquireSRWLockExclusive(&m_srwLock);
     dwPreviousCounter = m_pApplicationInfoHash->Count();
@@ -228,14 +247,21 @@ APPLICATION_MANAGER::RecycleApplication(
     // This also make sure application shutdown will not be called inside the lock
     m_pApplicationInfoHash->Apply(APPLICATION_INFO_HASH::ReferenceCopyToTable, static_cast<PVOID>(table));
     DBG_ASSERT(dwPreviousCounter == table->Count());
-
+    
     // Removed the applications which are impacted by the configurtion change
-    m_pApplicationInfoHash->DeleteIf(FindConfigChangedApplication, (PVOID)pszApplicationId);
+    m_pApplicationInfoHash->DeleteIf(FindConfigChangedApplication, (PVOID)&context);
 
-    if(dwPreviousCounter != m_pApplicationInfoHash->Count())
+    if (dwPreviousCounter != m_pApplicationInfoHash->Count())
     {
-        // In process application is in recycle. Block all incoming request
-        m_fInShutdown = m_hostingModel == HOSTING_IN_PROCESS;
+        if (m_hostingModel == HOSTING_IN_PROCESS)
+        {
+            APPLICATION_INFO_HASH* tmp = m_pApplicationInfoHash;
+            m_pApplicationInfoHash = table;
+            table = tmp;
+            // Trigger a worker process recycle and let the shutdown code path to handle it
+            // So that we  will drop/reject the incoming requests before WAS spins another worker process
+            g_pHttpServer->RecycleProcess(L"AspNetCore Recycle Process on Demand Due to In-process Application Configuration Changed");
+        }
 
         // Application got recycled. Log an event
         STACK_STRU(strEventMsg, 256);
@@ -266,6 +292,28 @@ APPLICATION_MANAGER::RecycleApplication(
 
     ReleaseSRWLockExclusive(&m_srwLock);
 
+    if(!context.MultiSz.IsEmpty() && (m_hostingModel == HOSTING_OUT_PROCESS || m_hostingModel == HOSTING_UNKNOWN))
+    {
+        // some out-of-process applications were removed from the hashtable, i.e., need to be recycle
+        // let's shut down them
+        PCWSTR path = context.MultiSz.First();
+        while (path != NULL)
+        {
+            APPLICATION_INFO* pRecord;
+            hr = key.Initialize(path);
+            if (FAILED(hr))
+            {
+                goto Finished;
+            }
+
+            table->FindKey(&key, &pRecord);
+            DBG_ASSERT(pRecord != NULL);
+            //todo: shudown should be done async
+            ShutDownApplication(pRecord, NULL);
+            path = context.MultiSz.Next(path);
+        }
+    }
+
 Finished:
     if (table != NULL)
     {
@@ -273,27 +321,87 @@ Finished:
         table->Clear();
         delete table;
     }
+
+    if (FAILED(hr))
+    {
+        // Application got recycled. Log an event
+        STACK_STRU(strEventMsg, 256);
+        if (SUCCEEDED(strEventMsg.SafeSnwprintf(
+            ASPNETCORE_EVENT_RECYCLE_FAILURE_CONFIGURATION_MSG,
+            hr)))
+        {
+            UTILITY::LogEvent(g_hEventLog,
+                EVENTLOG_ERROR_TYPE,
+                ASPNETCORE_EVENT_RECYCLE_APP_FAILURE,
+                strEventMsg.QueryStr());
+        }
+        // Need to recycle the process as we cannot recycle the application
+        g_pHttpServer->RecycleProcess(L"AspNetCore Recycle Process on Demand Due Application Recycle Error");
+    }
+
     return hr;
 }
 
 VOID
 APPLICATION_MANAGER::ShutDown()
 {
-    m_fInShutdown = TRUE;
-    if (m_pApplicationInfoHash != NULL)
+    if (!m_fInShutdown)
     {
-        AcquireSRWLockExclusive(&m_srwLock);
+        m_fInShutdown = TRUE;
+        // stop filewatcher monitoring thread
+        if (m_pFileWatcher != NULL)
+        {
+            delete  m_pFileWatcher;
+            m_pFileWatcher = NULL;
+        }
 
-        // clean up the hash table so that the application will be informed on shutdown
-        m_pApplicationInfoHash->Clear();
+        if (m_pApplicationInfoHash != NULL)
+        {
+            AcquireSRWLockExclusive(&m_srwLock);
 
-        ReleaseSRWLockExclusive(&m_srwLock);
+            // clean up the hash table so that the application will be informed on shutdown
+            m_pApplicationInfoHash->Apply(ShutDownApplication, NULL);
+
+            ReleaseSRWLockExclusive(&m_srwLock);
+        }
     }
+}
 
-    // stop filewatcher monitoring thread
-    if (m_pFileWatcher != NULL)
-    {
-        delete  m_pFileWatcher;
-        m_pFileWatcher = NULL;
-    }
+//static
+//
+// the function used by ShutDownApplication thread to do the real shutdown
+//
+VOID
+APPLICATION_MANAGER::DoShutDownApplication(
+    LPVOID lpParam)
+{
+    APPLICATION* pApplication = static_cast<APPLICATION*>(lpParam);
+    pApplication->ShutDown();
+    pApplication->DereferenceApplication();
+}
+
+//static
+//
+// Used to shutdown an application
+//
+VOID
+APPLICATION_MANAGER::ShutDownApplication(
+    _In_ APPLICATION_INFO *     pEntry,
+    _In_ PVOID                  pvContext
+)
+{
+    UNREFERENCED_PARAMETER(pvContext);
+
+    APPLICATION* pApplication = pEntry->QueryApplication();
+    pApplication->ReferenceApplication();
+    HANDLE hThread = CreateThread(
+        NULL,       // default security attributes
+        0,          // default stack size
+        (LPTHREAD_START_ROUTINE)DoShutDownApplication,
+        pApplication,       // thread function arguments
+        0,          // default creation flags
+        NULL);      // receive thread identifier
+
+    CloseHandle(hThread);
+
 }

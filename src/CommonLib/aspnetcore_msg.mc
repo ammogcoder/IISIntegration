@@ -158,6 +158,12 @@ Language=English
 %1
 .
 
+Messageid=1022
+SymbolicName=ASPNETCORE_EVENT_RECYCLE_APP_FAILURE
+Language=English
+%1
+.
+
 ;
 ;#endif     // _ASPNETCORE_MODULE_MSG_H_
 ;

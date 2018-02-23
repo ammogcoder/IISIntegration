@@ -202,7 +202,7 @@ HRESULT
 
     hr = pModuleInfo->SetGlobalNotifications(
                               pGlobalModule,
-                              GL_APPLICATION_STOP | // Configuration change trigers IIS application stop
+                              GL_CONFIGURATION_CHANGE | // Configuration change trigers IIS application stop
                               GL_STOP_LISTENING);   // worker process stop or recycle
 
     if (FAILED(hr))

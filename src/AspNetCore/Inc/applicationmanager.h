@@ -10,6 +10,13 @@
 // It should be global singleton.
 // Should always call GetInstance to get the object instance
 //
+
+struct CONFIG_CHANGE_CONTEXT
+{
+    PCWSTR   pstrPath;
+    MULTISZ  MultiSz;
+};
+
 class APPLICATION_MANAGER
 {
 public:
@@ -46,6 +53,19 @@ public:
     FindConfigChangedApplication(
         _In_ APPLICATION_INFO *     pEntry,
         _In_ PVOID                  pvContext
+    );
+
+    static
+    VOID
+    ShutDownApplication(
+        _In_ APPLICATION_INFO *     pEntry,
+        _In_ PVOID                  pvContext
+    );
+
+    static
+    void
+    DoShutDownApplication(
+        LPVOID lpParam
     );
 
     HRESULT

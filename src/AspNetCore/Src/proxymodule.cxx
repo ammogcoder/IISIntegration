@@ -173,6 +173,7 @@ Finished:
         pHttpContext->GetResponse()->SetStatus(500, "Internal Server Error", 0, hr);
         retVal = RQ_NOTIFICATION_FINISH_REQUEST;
     }
+
     return retVal;
 }
 
