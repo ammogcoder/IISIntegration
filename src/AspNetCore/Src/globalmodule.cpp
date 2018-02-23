@@ -34,14 +34,12 @@ ASPNET_CORE_GLOBAL_MODULE::OnGlobalStopListening(
 // Recycled the corresponding core app if its configuration changed
 //
 GLOBAL_NOTIFICATION_STATUS
-ASPNET_CORE_GLOBAL_MODULE::OnGlobalApplicationStop(
-    _In_ IHttpApplicationStopProvider * pProvider
+ASPNET_CORE_GLOBAL_MODULE::OnGlobalConfigurationChange(
+    _In_ IGlobalConfigurationChangeProvider * pProvider
 )
 {
     // Retrieve the path that has changed.
-    IHttpApplication* pApplication = pProvider->GetApplication();
-
-    PCWSTR pwszChangePath = pApplication->GetAppConfigPath();
+    PCWSTR pwszChangePath = pProvider->GetChangePath();
 
     // Test for an error.
     if (NULL != pwszChangePath &&

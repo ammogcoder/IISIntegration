@@ -211,6 +211,18 @@ public:
         pApplicationInfo->DereferenceApplicationInfo();
     }
 
+    static
+    VOID
+    ReferenceCopyToTable(
+        APPLICATION_INFO *        pEntry,
+        PVOID                     pvData
+    )
+    {
+        APPLICATION_INFO_HASH *pHash = static_cast<APPLICATION_INFO_HASH *>(pvData);
+        DBG_ASSERT(pHash);
+        pHash->InsertRecord(pEntry);
+    }
+
 private:
 
     APPLICATION_INFO_HASH(const APPLICATION_INFO_HASH &);

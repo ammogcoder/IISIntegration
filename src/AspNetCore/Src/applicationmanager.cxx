@@ -189,6 +189,14 @@ Finished:
     return hr;
 }
 
+BOOL
+APPLICATION_MANAGER::FindConfigChangedApplication(
+    _In_ APPLICATION_INFO *     pEntry,
+    _In_ PVOID                  pvContext)
+{
+    return pEntry->QueryConfig()->QueryApplicationPath()->StartsWith((PCWSTR)pvContext, true);
+}
+
 HRESULT
 APPLICATION_MANAGER::RecycleApplication(
     _In_ LPCWSTR pszApplicationId
@@ -197,19 +205,38 @@ APPLICATION_MANAGER::RecycleApplication(
     HRESULT          hr = S_OK;
     APPLICATION_INFO_KEY  key;
     DWORD            dwPreviousCounter = 0;
+    APPLICATION_INFO_HASH* table = NULL;
 
     hr = key.Initialize(pszApplicationId);
     if (FAILED(hr))
     {
         goto Finished;
     }
+
+     table = new APPLICATION_INFO_HASH();
+    if(table == NULL)
+    {
+        hr = E_OUTOFMEMORY;
+        goto Finished;
+    }
+
     AcquireSRWLockExclusive(&m_srwLock);
     dwPreviousCounter = m_pApplicationInfoHash->Count();
 
-    m_pApplicationInfoHash->DeleteKey(&key);
+    // We don't want to hold the lock for long time as it will blocks all incoming requests
+    // Make a shallow copy of existing hashtable as we may remove nodes from it
+    // This also make sure application shutdown will not be called inside the lock
+    m_pApplicationInfoHash->Apply(APPLICATION_INFO_HASH::ReferenceCopyToTable, static_cast<PVOID>(table));
+    DBG_ASSERT(dwPreviousCounter == table->Count());
+
+    // Removed the applications which are impacted by the configurtion change
+    m_pApplicationInfoHash->DeleteIf(FindConfigChangedApplication, (PVOID)pszApplicationId);
 
     if(dwPreviousCounter != m_pApplicationInfoHash->Count())
     {
+        // In process application is in recycle. Block all incoming request
+        m_fInShutdown = m_hostingModel == HOSTING_IN_PROCESS;
+
         // Application got recycled. Log an event
         STACK_STRU(strEventMsg, 256);
         if (SUCCEEDED(strEventMsg.SafeSnwprintf(
@@ -221,7 +248,6 @@ APPLICATION_MANAGER::RecycleApplication(
                 ASPNETCORE_EVENT_RECYCLE_CONFIGURATION,
                 strEventMsg.QueryStr());
         }
-
     }
 
     if (m_pApplicationInfoHash->Count() == 0)
@@ -241,7 +267,12 @@ APPLICATION_MANAGER::RecycleApplication(
     ReleaseSRWLockExclusive(&m_srwLock);
 
 Finished:
-
+    if (table != NULL)
+    {
+        // Clear the temp hash table so that application shutdown will be triggered if it was impacted by the configuration change
+        table->Clear();
+        delete table;
+    }
     return hr;
 }
 

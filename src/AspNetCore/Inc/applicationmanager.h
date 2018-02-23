@@ -41,6 +41,13 @@ public:
         }
     }
 
+    static
+    BOOL
+    FindConfigChangedApplication(
+        _In_ APPLICATION_INFO *     pEntry,
+        _In_ PVOID                  pvContext
+    );
+
     HRESULT
     GetApplicationInfo(
         _In_ IHttpServer*          pServer,

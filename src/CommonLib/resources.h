@@ -29,7 +29,7 @@
 #define ASPNETCORE_EVENT_INPROCESS_THREAD_EXIT_STDOUT_MSG    L"Application '%s' with physical root '%s' hit unexpected managed background thread exit, ErrorCode = '0x%x. Last 4KB characters of captured stdout and stderr logs:\r\n%s"
 #define ASPNETCORE_EVENT_INPROCESS_THREAD_EXIT_MSG           L"Application '%s' with physical root '%s' hit unexpected managed background thread exit, ErrorCode = '0x%x. Please check the stderr logs for more information."
 #define ASPNETCORE_EVENT_RECYCLE_APPOFFLINE_MSG              L"Application '%s' is recycled due to app_offline file was detected."
-#define ASPNETCORE_EVENT_RECYCLE_CONFIGURATION_MSG           L"Application '%s' is recycled due to configuration changed"
+#define ASPNETCORE_EVENT_RECYCLE_CONFIGURATION_MSG           L"Application is recycled due to configuration changed at '%s'"
 #define ASPNETCORE_EVENT_MODULE_DISABLED_MSG                 L"AspNetCore Module is disabled"
 #define ASPNETCORE_EVENT_INPROCESS_FULL_FRAMEWORK_APP_MSG    L"Application '%s' was compiled for .NET Framework. Please compile for .NET core to run the inprocess application or change the process mode to out of process. ErrorCode = '0x%x'."
 #define ASPNETCORE_EVENT_PORTABLE_APP_DOTNET_MISSING_MSG     L"Could not find dotnet.exe on the system PATH environment variable for portable application '%s'. Check that a valid path to dotnet is on the PATH and the bitness of dotnet matches the bitness of the IIS worker process. ErrorCode = '0x%x'."
