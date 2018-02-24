@@ -242,8 +242,8 @@ APPLICATION_MANAGER::RecycleApplication(
     AcquireSRWLockExclusive(&m_srwLock);
     dwPreviousCounter = m_pApplicationInfoHash->Count();
 
-    // We don't want to hold the lock for long time as it will blocks all incoming requests
-    // Make a shallow copy of existing hashtable as we may remove nodes from it
+    // We don't want to hold the lock for long time as it will block all incoming requests
+    // Make a shallow copy of existing hashtable as we may nee to remove nodes
     // This also make sure application shutdown will not be called inside the lock
     m_pApplicationInfoHash->Apply(APPLICATION_INFO_HASH::ReferenceCopyToTable, static_cast<PVOID>(table));
     DBG_ASSERT(dwPreviousCounter == table->Count());
@@ -258,8 +258,9 @@ APPLICATION_MANAGER::RecycleApplication(
             APPLICATION_INFO_HASH* tmp = m_pApplicationInfoHash;
             m_pApplicationInfoHash = table;
             table = tmp;
-            // Trigger a worker process recycle and let the shutdown code path to handle it
-            // So that we  will drop/reject the incoming requests before WAS spins another worker process
+            // Keep the original applicationinfo hashtable to continue server request
+            // Trigger a worker process recycle and let the process shutdown code path to handle it
+            // So that we will drop/reject the incoming requests before WAS spins another worker process
             g_pHttpServer->RecycleProcess(L"AspNetCore Recycle Process on Demand Due to In-process Application Configuration Changed");
         }
     }
@@ -267,14 +268,6 @@ APPLICATION_MANAGER::RecycleApplication(
     if (m_pApplicationInfoHash->Count() == 0)
     {
         m_hostingModel = HOSTING_UNKNOWN;
-    }
-
-    if (g_fAspnetcoreRHLoadedError)
-    {
-        // We had assembly loading failure
-        // this error blocked the start of all applications
-        // Let's recycle the worker process if user redeployed any application
-        g_pHttpServer->RecycleProcess(L"AspNetCore Recycle Process on Demand due to assembly loading failure");
     }
 
     ReleaseSRWLockExclusive(&m_srwLock);
