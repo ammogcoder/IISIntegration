@@ -420,11 +420,14 @@ HOSTFXR_UTILITY::ParseHostfxrArguments(
                 goto Failure;
             }
         }
-        argv[i + 1] = SysAllocString(pwzArgs[i]);
-        if (argv[i + 1] == NULL)
+        else
         {
-            hr = E_OUTOFMEMORY;
-            goto Failure;
+            argv[i + 1] = SysAllocString(pwzArgs[i]);
+            if (argv[i + 1] == NULL)
+            {
+                hr = E_OUTOFMEMORY;
+                goto Failure;
+            }
         }
         dwArgsProcessed++;
     }
