@@ -159,7 +159,7 @@ HOSTFXR_UTILITY::GetHostFxrParameters(
     PCWSTR              pcwzArguments,
     _Inout_ STRU*		struHostFxrDllLocation,
     _Out_ DWORD*		pdwArgCount,
-    _Out_ PWSTR**		ppwzArgv
+    _Out_ BSTR**		pbstrArgv
 )
 {
     HRESULT                     hr = S_OK;
@@ -198,7 +198,7 @@ HOSTFXR_UTILITY::GetHostFxrParameters(
                 hEventLog,
                 struHostFxrDllLocation,
                 pdwArgCount,
-                ppwzArgv);
+                pbstrArgv);
             goto Finished;
         }
     }
@@ -322,7 +322,7 @@ HOSTFXR_UTILITY::GetHostFxrParameters(
         pcwzApplicationPhysicalPath,
         hEventLog,
         pdwArgCount,
-        ppwzArgv)))
+        pbstrArgv)))
     {
         goto Finished;
     }
@@ -352,7 +352,7 @@ HOSTFXR_UTILITY::ParseHostfxrArguments(
     PCWSTR              pcwzApplicationPhysicalPath,
     HANDLE              hEventLog,
     _Out_ DWORD*        pdwArgCount,
-    _Out_ PWSTR**       ppwzArgv
+    _Out_ BSTR**        pbstrArgv
 )
 {
     UNREFERENCED_PARAMETER( hEventLog ); // TODO use event log to set errors.
@@ -362,10 +362,10 @@ HOSTFXR_UTILITY::ParseHostfxrArguments(
 
     HRESULT     hr = S_OK;
     INT         argc = 0;
-    PWSTR*     argv = NULL;
+    BSTR*       argv = NULL;
     LPWSTR*     pwzArgs = NULL;
     STRU        struTempPath;
-    DWORD         dwArgsProcessed = 0;
+    DWORD       dwArgsProcessed = 0;
 
     pwzArgs = CommandLineToArgvW(pwzArgumentsFromConfig, &argc);
 
@@ -382,7 +382,7 @@ HOSTFXR_UTILITY::ParseHostfxrArguments(
         goto Failure;
     }
 
-    argv = new PWSTR[argc + 2];
+    argv = new PWSTR[argc + 1];
     if (argv == NULL)
     {
         hr = E_OUTOFMEMORY;
@@ -398,35 +398,30 @@ HOSTFXR_UTILITY::ParseHostfxrArguments(
     }
     dwArgsProcessed++;
 
-    argv[1] = SysAllocString(L"exec");
-    if (argv[1] == NULL)
-    {
-        hr = E_OUTOFMEMORY;
-        goto Failure;
-    }
-    dwArgsProcessed++;
-
     // Try to convert the application dll from a relative to an absolute path
     // Don't record this failure as pwzArgs[0] may already be an absolute path to the dll.
-    if (SUCCEEDED(UTILITY::ConvertPathToFullPath(pwzArgs[0], pcwzApplicationPhysicalPath, &struTempPath)))
-    {
-        argv[2] = SysAllocString(struTempPath.QueryStr());
-    }
-    else
-    {
-        argv[2] = SysAllocString(pwzArgs[0]);
-    }
-    if (argv[2] == NULL)
-    {
-        hr = E_OUTOFMEMORY;
-        goto Failure;
-    }
-    dwArgsProcessed++;
 
-    for (INT i = 1; i < argc; i++)
+    for (INT i = 0; i < argc; i++)
     {
-        argv[i + 2] = SysAllocString(pwzArgs[i]);
-        if (argv[i + 2] == NULL)
+        struTempPath.Copy(pwzArgs[i]);
+        if (struTempPath.EndsWith(L".dll"))
+        {
+            if (SUCCEEDED(UTILITY::ConvertPathToFullPath(pwzArgs[i], pcwzApplicationPhysicalPath, &struTempPath)))
+            {
+                argv[i + 1] = SysAllocString(struTempPath.QueryStr());
+            }
+            else
+            {
+                argv[i + 1] = SysAllocString(pwzArgs[i]);
+            }
+            if (argv[i + 1] == NULL)
+            {
+                hr = E_OUTOFMEMORY;
+                goto Failure;
+            }
+        }
+        argv[i + 1] = SysAllocString(pwzArgs[i]);
+        if (argv[i + 1] == NULL)
         {
             hr = E_OUTOFMEMORY;
             goto Failure;
@@ -434,7 +429,7 @@ HOSTFXR_UTILITY::ParseHostfxrArguments(
         dwArgsProcessed++;
     }
 
-    *ppwzArgv = argv;
+    *pbstrArgv = argv;
     *pdwArgCount = dwArgsProcessed;
 
     goto Finished;
@@ -444,7 +439,7 @@ Failure:
     {
         for (DWORD i = 0; i < dwArgsProcessed; i++)
         {
-            SysFreeString((BSTR)argv[i]);
+            SysFreeString(argv[i]);
         }
     }
 

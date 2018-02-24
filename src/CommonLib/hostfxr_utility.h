@@ -26,7 +26,6 @@ public:
         _Out_ PWSTR**       ppwzArgv
 	);
 
-private:
     static
     HRESULT
     GetStandaloneHostfxrParameters(
