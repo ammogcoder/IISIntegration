@@ -199,7 +199,17 @@ APPLICATION_MANAGER::FindConfigChangedApplication(
     BOOL fChanged = pstruConfigPath->StartsWith(pContext->pstrPath, true);
     if (fChanged)
     {
-        pContext->MultiSz.Append(*pstruConfigPath);
+        DWORD dwLen = (DWORD)wcslen(pContext->pstrPath);
+        WCHAR wChar = pstruConfigPath->QueryStr()[dwLen];
+        if (wChar != L'\0' && wChar != L'/')
+        {
+            // not current app or sub app
+            fChanged = FALSE;
+        }
+        else
+        {
+            pContext->MultiSz.Append(*pstruConfigPath);
+        }
     }
     return fChanged;
 }
