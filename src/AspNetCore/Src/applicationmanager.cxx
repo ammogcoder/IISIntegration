@@ -262,25 +262,12 @@ APPLICATION_MANAGER::RecycleApplication(
             // So that we  will drop/reject the incoming requests before WAS spins another worker process
             g_pHttpServer->RecycleProcess(L"AspNetCore Recycle Process on Demand Due to In-process Application Configuration Changed");
         }
-
-        // Application got recycled. Log an event
-        STACK_STRU(strEventMsg, 256);
-        if (SUCCEEDED(strEventMsg.SafeSnwprintf(
-            ASPNETCORE_EVENT_RECYCLE_CONFIGURATION_MSG,
-            pszApplicationId)))
-        {
-            UTILITY::LogEvent(g_hEventLog,
-                EVENTLOG_INFORMATION_TYPE,
-                ASPNETCORE_EVENT_RECYCLE_CONFIGURATION,
-                strEventMsg.QueryStr());
-        }
     }
 
     if (m_pApplicationInfoHash->Count() == 0)
     {
         m_hostingModel = HOSTING_UNKNOWN;
     }
-
 
     if (g_fAspnetcoreRHLoadedError)
     {
@@ -300,6 +287,19 @@ APPLICATION_MANAGER::RecycleApplication(
         while (path != NULL)
         {
             APPLICATION_INFO* pRecord;
+
+            // Application got recycled. Log an event
+            STACK_STRU(strEventMsg, 256);
+            if (SUCCEEDED(strEventMsg.SafeSnwprintf(
+                ASPNETCORE_EVENT_RECYCLE_CONFIGURATION_MSG,
+                path)))
+            {
+                UTILITY::LogEvent(g_hEventLog,
+                    EVENTLOG_INFORMATION_TYPE,
+                    ASPNETCORE_EVENT_RECYCLE_CONFIGURATION,
+                    strEventMsg.QueryStr());
+            }
+
             hr = key.Initialize(path);
             if (FAILED(hr))
             {
