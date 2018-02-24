@@ -137,6 +137,8 @@ HRESULT
         {
             fDisableANCM = (dwData != 0);
         }
+
+        RegCloseKey(hKey);
     }
 
     if (fDisableANCM)
