@@ -128,10 +128,13 @@ ASPNET_CORE_PROXY_MODULE::OnExecuteRequestHandler(
             FALSE
         );
 
-        DataChunk.DataChunkType = HttpDataChunkFromMemory;
-        DataChunk.FromMemory.pBuffer = (PVOID)pAppOfflineHtm->m_Contents.QueryStr();
-        DataChunk.FromMemory.BufferLength = pAppOfflineHtm->m_Contents.QueryCB();
-        pResponse->WriteEntityChunkByReference(&DataChunk);
+        if (pAppOfflineHtm != NULL)
+        {
+            DataChunk.DataChunkType = HttpDataChunkFromMemory;
+            DataChunk.FromMemory.pBuffer = (PVOID)pAppOfflineHtm->m_Contents.QueryStr();
+            DataChunk.FromMemory.BufferLength = pAppOfflineHtm->m_Contents.QueryCB();
+            pResponse->WriteEntityChunkByReference(&DataChunk);
+        }
 
         retVal = RQ_NOTIFICATION_FINISH_REQUEST;
         goto Finished;

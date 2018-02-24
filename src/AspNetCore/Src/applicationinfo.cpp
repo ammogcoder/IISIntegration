@@ -106,7 +106,6 @@ APPLICATION_INFO::UpdateAppOfflineFileHandle()
     }
     else
     {
-        m_fAppOfflineFound = TRUE;
         pNewAppOfflineHtm = new APP_OFFLINE_HTM(strFilePath.QueryStr());
 
         if (pNewAppOfflineHtm != NULL)
@@ -132,6 +131,8 @@ APPLICATION_INFO::UpdateAppOfflineFileHandle()
             }
         }
 
+        m_fAppOfflineFound = TRUE;
+
         // recycle the application
         if (m_pApplication != NULL)
         {
@@ -149,7 +150,6 @@ APPLICATION_INFO::UpdateAppOfflineFileHandle()
             m_pApplication->ShutDown();
             m_pApplication->DereferenceApplication();
             m_pApplication = NULL;
-
         }
     }
 }
