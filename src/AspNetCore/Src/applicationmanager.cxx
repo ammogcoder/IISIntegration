@@ -258,7 +258,7 @@ APPLICATION_MANAGER::RecycleApplication(
             APPLICATION_INFO_HASH* tmp = m_pApplicationInfoHash;
             m_pApplicationInfoHash = table;
             table = tmp;
-            // Keep the original applicationinfo hashtable to continue server request
+            // Keep the original applicationinfo hashtable to continue serve request
             // Trigger a worker process recycle and let the process shutdown code path to handle it
             // So that we will drop/reject the incoming requests before WAS spins another worker process
             g_pHttpServer->RecycleProcess(L"AspNetCore Recycle Process on Demand Due to In-process Application Configuration Changed");
@@ -274,8 +274,7 @@ APPLICATION_MANAGER::RecycleApplication(
 
     if(!context.MultiSz.IsEmpty() && (m_hostingModel == HOSTING_OUT_PROCESS || m_hostingModel == HOSTING_UNKNOWN))
     {
-        // some out-of-process applications were removed from the hashtable, i.e., need to be recycle
-        // let's shut down them
+        // some out-of-process applications were removed from the hashtable, i.e., need to be recycled
         PCWSTR path = context.MultiSz.First();
         while (path != NULL)
         {
@@ -318,7 +317,7 @@ Finished:
 
     if (FAILED(hr))
     {
-        // Application got recycled. Log an event
+        // Failed to recycle an application. Log an event
         STACK_STRU(strEventMsg, 256);
         if (SUCCEEDED(strEventMsg.SafeSnwprintf(
             ASPNETCORE_EVENT_RECYCLE_FAILURE_CONFIGURATION_MSG,
@@ -361,10 +360,10 @@ APPLICATION_MANAGER::ShutDown()
     }
 }
 
-//static
 //
-// the function used by ShutDownApplication thread to do the real shutdown
+// Function used by ShutDownApplication thread to do the real shutdown
 //
+// static
 VOID
 APPLICATION_MANAGER::DoShutDownApplication(
     LPVOID lpParam)
@@ -374,10 +373,10 @@ APPLICATION_MANAGER::DoShutDownApplication(
     pApplication->DereferenceApplication();
 }
 
-//static
 //
-// Used to shutdown an application
+// Function used to shutdown an application
 //
+// static
 VOID
 APPLICATION_MANAGER::ShutDownApplication(
     _In_ APPLICATION_INFO *     pEntry,
