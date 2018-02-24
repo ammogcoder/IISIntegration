@@ -22,4 +22,5 @@ public:
 
 private:
     PROCESS_MANAGER * m_pProcessManager;
+    SRWLOCK           rwlock;
 };

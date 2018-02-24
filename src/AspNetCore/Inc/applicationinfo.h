@@ -134,6 +134,13 @@ public:
         return m_pApplication;
     }
 
+    VOID
+    ResetApplication()
+    {
+        m_pApplication->DereferenceApplication();
+        m_pApplication = NULL;
+    }
+
     HRESULT
     EnsureApplicationCreated();
 

@@ -308,8 +308,10 @@ APPLICATION_MANAGER::RecycleApplication(
 
             table->FindKey(&key, &pRecord);
             DBG_ASSERT(pRecord != NULL);
-            //todo: shudown should be done async
+
+            // shutdown will be done in another thread
             ShutDownApplication(pRecord, NULL);
+            pRecord->DereferenceApplicationInfo();
             path = context.MultiSz.Next(path);
         }
     }
@@ -317,7 +319,6 @@ APPLICATION_MANAGER::RecycleApplication(
 Finished:
     if (table != NULL)
     {
-        // Clear the temp hash table so that application shutdown will be triggered if it was impacted by the configuration change
         table->Clear();
         delete table;
     }
@@ -393,7 +394,13 @@ APPLICATION_MANAGER::ShutDownApplication(
     UNREFERENCED_PARAMETER(pvContext);
 
     APPLICATION* pApplication = pEntry->QueryApplication();
+
+    // Reference the application first
     pApplication->ReferenceApplication();
+
+    // Reset application pointer to NULL
+    // The destructor of ApplictionInfo will not call ShutDown again
+    pEntry->ResetApplication();
     HANDLE hThread = CreateThread(
         NULL,       // default security attributes
         0,          // default stack size
@@ -403,5 +410,4 @@ APPLICATION_MANAGER::ShutDownApplication(
         NULL);      // receive thread identifier
 
     CloseHandle(hThread);
-
 }
