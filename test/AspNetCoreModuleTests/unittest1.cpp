@@ -11,7 +11,17 @@ namespace AspNetCoreModuleTests
 		
 		TEST_METHOD(TestMethod1)
 		{
-            Assert::AreEqual(HOSTFXR_UTILITY::)
+            DWORD dwArgc = 0;
+            BSTR* pBstrArgv = NULL;
+            HRESULT hr = HOSTFXR_UTILITY::ParseHostfxrArguments(
+                L"exec \"C:\\Program Files\\dotnet\\test.dll\"",
+                L"C:\\Program Files\\dotnet\\dotnet.exe",
+                L"C:\\test\\",
+                NULL,
+                &dwArgc,
+                &pBstrArgv);
+
+            Assert::AreEqual(pBstrArgv[0], L"C:\\Program Files\\dotnet\\dotnet.exe");
 		}
 	};
 }

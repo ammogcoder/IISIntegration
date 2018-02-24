@@ -23,7 +23,7 @@ public:
         PCWSTR              pcwzArguments,
         _Inout_ STRU*       struHostFxrDllLocation,
         _Out_ DWORD*        pdwArgCount,
-        _Out_ PWSTR**       ppwzArgv
+        _Out_ BSTR**       ppwzArgv
 	);
 
     static
@@ -35,7 +35,7 @@ public:
         HANDLE              hEventLog,
         _Inout_ STRU*		struHostFxrDllLocation,
         _Out_ DWORD*		pdwArgCount,
-        _Out_ PWSTR**		ppwzArgv
+        _Out_ BSTR**		ppwzArgv
     );
 
     static
@@ -46,7 +46,7 @@ public:
         PCWSTR				pcwzApplicationPhysicalPath,
         HANDLE              hEventLog,
         _Out_ DWORD*        pdwArgCount,
-        _Out_ PWSTR**       ppwzArgv
+        _Out_ BSTR**       ppwzArgv
     );
 
 

@@ -25,7 +25,8 @@
         "LAUNCHER_ARGS": "$(TargetPath)",
         "ASPNETCORE_ENVIRONMENT": "Development",
         "LAUNCHER_PATH": "dotnet.exe"
-      }
+      },
+      "nativeDebugging":  true
     },
     "NativeIISSample": {
       "commandName": "Project",
