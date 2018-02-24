@@ -82,18 +82,15 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
                 // The app is finished and there should be nobody writing to the response pipe
                 Output.Dispose();
 
-                if (_writingTask != null)
-                {
-                    await _writingTask;
-                }
-
                 // The app is finished and there should be nobody reading from the request pipe
                 Input.Reader.Complete();
 
-                if (_readingTask != null)
+                Task readWriteTask;
+                lock(_createReadWriteBodySync)
                 {
-                    await _readingTask;
+                    readWriteTask = _readWriteTask;
                 }
+                await readWriteTask;
             }
             return success;
         }

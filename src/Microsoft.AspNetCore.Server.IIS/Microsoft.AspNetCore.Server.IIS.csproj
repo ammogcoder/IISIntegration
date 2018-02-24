@@ -25,6 +25,10 @@
     <ProjectReference Include="..\Microsoft.AspNetCore.Server.IISIntegration\Microsoft.AspNetCore.Server.IISIntegration.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="Properties\" />
+  </ItemGroup>
+
   <Target Name="SetPackageProperties" BeforeTargets="GenerateNuspec">
     <PropertyGroup>
       <NuspecProperties>
