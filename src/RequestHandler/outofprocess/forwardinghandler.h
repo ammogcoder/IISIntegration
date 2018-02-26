@@ -155,6 +155,11 @@ private:
         _Inout_ DWORD *                 pcchHeaders
     );
 
+    VOID
+    RemoveRequest(
+        VOID
+    );
+
     DWORD                               m_Signature;
     //
     // WinHTTP request handle is protected using a read-write lock.

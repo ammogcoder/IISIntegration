@@ -61,11 +61,7 @@ FORWARDING_HANDLER::~FORWARDING_HANDLER(
     // 
     DBG_ASSERT(m_pDisconnect == NULL);
 
-    if (m_pDisconnect != NULL)
-    {
-        m_pDisconnect->ResetHandler();
-        m_pDisconnect = NULL;
-    }
+    RemoveRequest();
 
     FreeResponseBuffers();
 
@@ -314,15 +310,7 @@ Failure:
     m_RequestStatus = FORWARDER_DONE;
 
     //disbale client disconnect callback
-    if (m_pDisconnect != NULL)
-    {
-        if (fHandleSet)
-        {
-            m_pDisconnect->ResetHandler();
-        }
-        m_pDisconnect->CleanupStoredContext();
-        m_pDisconnect = NULL;
-    }
+    RemoveRequest();
 
     pResponse->DisableKernelCache();
     pResponse->GetRawHttpResponse()->EntityChunkCount = 0;
@@ -538,11 +526,7 @@ Failure:
     m_RequestStatus = FORWARDER_DONE;
 
     //disbale client disconnect callback
-    if (m_pDisconnect != NULL)
-    {
-        m_pDisconnect->ResetHandler();
-        m_pDisconnect = NULL;
-    }
+    RemoveRequest();
 
     //
     // Do the right thing based on where the error originated from.
@@ -1504,11 +1488,7 @@ Finished:
     if (m_RequestStatus == FORWARDER_DONE)
     {
         //disbale client disconnect callback
-        if (m_pDisconnect != NULL)
-        {
-            m_pDisconnect->ResetHandler();
-            m_pDisconnect = NULL;
-        }
+        RemoveRequest();
 
         if (m_hRequest != NULL)
         {
@@ -2594,6 +2574,20 @@ SetCookie:
     }
 
     return S_OK;
+}
+
+VOID
+FORWARDING_HANDLER::RemoveRequest(
+    VOID
+)
+{
+    ASYNC_DISCONNECT_CONTEXT *       pDisconnect;
+    pDisconnect = (ASYNC_DISCONNECT_CONTEXT *)InterlockedExchangePointer((PVOID*)&m_pDisconnect, NULL);
+    if (pDisconnect != NULL)
+    {
+        pDisconnect->ResetHandler();
+        pDisconnect = NULL;
+    }
 }
 
 VOID
