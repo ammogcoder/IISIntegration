@@ -146,7 +146,6 @@ ASPNETCORE_CONFIG::Populate(
     IAppHostAdminManager           *pAdminManager = NULL;
     IAppHostElement                *pAspNetCoreElement = NULL;
     IAppHostElement                *pWindowsAuthenticationElement = NULL;
-    IAppHostElement                *pWindowsWebsocketElement = NULL;
     IAppHostElement                *pBasicAuthenticationElement = NULL;
     IAppHostElement                *pAnonymousAuthenticationElement = NULL;
     IAppHostElement                *pWebSocketElement = NULL;
