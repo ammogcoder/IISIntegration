@@ -20,17 +20,13 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
         private IISAwaitable _writeWebSocketsOperation;
         private TaskCompletionSource<object> _upgradeTcs;
 
-        private async Task CheckForUpgrade()
+        private async Task StartBidirectionalStream()
         {
-            // the UpgradeTcs will only be set in UpgradeAsync.
-            if (_upgradeTcs?.TrySetResult(null) == true)
-            {
-                // IIS allows for websocket support and duplex channels only on Win8 and above
-                // This allows us to have two tasks for reading the request and writing the response
-                var readWebsocketTask = ReadWebSockets();
-                var writeWebsocketTask = WriteWebSockets();
-                await Task.WhenAll(readWebsocketTask, writeWebsocketTask);
-            }
+            // IIS allows for websocket support and duplex channels only on Win8 and above
+            // This allows us to have two tasks for reading the request and writing the response
+            var readWebsocketTask = ReadWebSockets();
+            var writeWebsocketTask = WriteWebSockets();
+            await Task.WhenAll(readWebsocketTask, writeWebsocketTask);
         }
 
         public async Task UpgradeAsync()
@@ -52,7 +48,6 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
             bool fCompletionExpected;
 
             // For websocket calls, we can directly provide a callback function to be called once the websocket operation completes.
-            // 
             hr = NativeMethods.http_websockets_read_bytes(
                                         _pInProcessHandler,
                                         (byte*)_inputHandle.Pointer,
@@ -124,12 +119,18 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
 
                     currentChunk++;
                 }
+
                 hr = NativeMethods.http_websockets_write_bytes(_pInProcessHandler, pDataChunks, nChunks, IISAwaitable.WriteCallback, (IntPtr)_thisHandle, out fCompletionExpected);
 
                 foreach (var handle in handles)
                 {
                     handle.Dispose();
                 }
+            }
+
+            if (!fCompletionExpected)
+            {
+                CompleteWriteWebSockets(hr, 0);
             }
 
             return _writeWebSocketsOperation;
@@ -151,13 +152,13 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
             {
                 while (true)
                 {
-                    var wb = Input.Writer.GetMemory();
-                    _inputHandle = wb.Retain(true);
+                    var memory = Input.Writer.GetMemory();
+                    _inputHandle = memory.Retain(true);
 
                     try
                     {
                         int read = 0;
-                        read = await ReadWebSocketsFromIISAsync(wb.Length);
+                        read = await ReadWebSocketsFromIISAsync(memory.Length);
 
                         if (read == 0)
                         {
@@ -190,46 +191,43 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
 
         private async Task WriteWebSockets()
         {
-            while (true)
+            try
             {
-                ReadResult result;
-
-                try
+                while (true)
                 {
-                    result = await Output.Reader.ReadAsync();
-                }
-                catch
-                {
-                    Output.Reader.Complete();
-                    break;
-                }
+                    var result = await Output.Reader.ReadAsync();
 
-                var buffer = result.Buffer;
-                var consumed = buffer.End;
+                    var buffer = result.Buffer;
+                    var consumed = buffer.End;
 
-                try
-                {
-                    if (result.IsCancelled)
+                    try
                     {
-                        break;
+                        if (result.IsCancelled)
+                        {
+                            break;
+                        }
+
+                        if (!buffer.IsEmpty)
+                        {
+                            await WriteWebSocketsFromIISAsync(buffer);
+                        }
+                        else if (result.IsCompleted)
+                        {
+                            break;
+                        }
                     }
-
-                    if (!buffer.IsEmpty)
+                    finally
                     {
-                        await WriteWebSocketsFromIISAsync(buffer);
-                    }
-                    else if (result.IsCompleted)
-                    {
-                        break;
+                        Output.Reader.AdvanceTo(consumed);
                     }
                 }
-                finally
-                {
-                    Output.Reader.AdvanceTo(consumed);
-                }
+
+                Output.Reader.Complete();
             }
-
-            Output.Reader.Complete();
+            catch (Exception ex)
+            {
+                Output.Reader.Complete(ex);
+            }
         }
     }
 }

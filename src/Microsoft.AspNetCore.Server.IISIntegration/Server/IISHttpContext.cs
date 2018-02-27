@@ -26,7 +26,7 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
     {
         private const int MinAllocBufferSize = 2048;
         private const int PauseWriterThreshold = 65536;
-        private const int ResumeWriterTheshold = 32768;
+        private const int ResumeWriterTheshold = PauseWriterThreshold / 2;
 
         private static bool UpgradeAvailable = (Environment.OSVersion.Version >= new Version(6, 2));
 
@@ -52,7 +52,7 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
         private GCHandle _thisHandle;
         private MemoryHandle _inputHandle;
         private IISAwaitable _operation = new IISAwaitable();
-        protected Task _readWriteTask;
+        protected Task _processBodiesTask;
 
         protected int _requestAborted;
 
@@ -290,13 +290,13 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
 
         public void StartProcessingRequestAndResponseBody()
         {
-            if (_readWriteTask == null)
+            if (_processBodiesTask == null)
             {
                 lock (_createReadWriteBodySync)
                 {
-                    if (_readWriteTask == null)
+                    if (_processBodiesTask == null)
                     {
-                        _readWriteTask = ConsumeAsync();
+                        _processBodiesTask = ConsumeAsync();
                     }
                 }
             }
@@ -323,13 +323,122 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
 
         public async Task ReadAndWriteLoopAsync()
         {
-            // First we check if there is anything to write from the Output pipe
-            // If there is, we call WriteToIISAsync
-            while (!_doneReading)
+            try
             {
-                // Check if Output pipe has anything to write to IIS.
-                if (Output.Reader.TryRead(out var readResult))
+
+                while (!_doneReading)
                 {
+                    // First we check if there is anything to write from the Output pipe
+                    // If there is, we call WriteToIISAsync
+                    // Check if Output pipe has anything to write to IIS.
+                    if (Output.Reader.TryRead(out var readResult))
+                    {
+                        var buffer = readResult.Buffer;
+                        var consumed = buffer.End;
+
+                        try
+                        {
+                            // If the output pipe is terminated, cancel the request.
+                            if (readResult.IsCancelled)
+                            {
+                                _doneWriting = true;
+                                break;
+                            }
+
+                            if (!buffer.IsEmpty)
+                            {
+                                // Write to IIS buffers
+                                // Guaranteed to write the entire buffer to IIS
+                                await WriteToIISAsync(buffer);
+                            }
+                            else if (readResult.IsCompleted)
+                            {
+                                _doneWriting = true;
+                                break;
+                            }
+                            else
+                            {
+                                // Flush of zero bytes
+                                await FlushToIISAsync();
+                            }
+                        }
+                        finally
+                        {
+                            // Always Advance the data pointer to the end of the buffer.
+                            Output.Reader.AdvanceTo(buffer.End);
+                        }
+                    }
+
+                    // Check if there was an upgrade. If there is, we will replace the request and response bodies with
+                    // two seperate loops. These will still be using the same Input and Output pipes here.
+                    if (_upgradeTcs?.TrySetResult(null) == true)
+                    {
+                        await StartBidirectionalStream();
+
+                        // Input and Output will be closed in StartBidirectionalStream.
+                        // We can return at this point.
+                        return;
+                    }
+
+                    // Now we handle the read. 
+                    var memory = Input.Writer.GetMemory();
+                    _inputHandle = memory.Retain(true);
+
+                    try
+                    {
+                        // Lock around invoking ReadFromIISAsync as we don't want to call CancelIo
+                        // when calling read
+                        var read = await ReadFromIISAsync(memory.Length);
+
+                        // read value of 0 == done reading
+                        // read value of -1 == read cancelled, continue trying to read
+                        // but don't advance the pipe
+                        if (read == 0)
+                        {
+                            _doneReading = true;
+                        }
+                        else if (read != -1)
+                        {
+                            Input.Writer.Advance(read);
+                        }
+                    }
+                    finally
+                    {
+                        // Always commit any changes to the Input pipe
+                        Input.Writer.Commit();
+                        _inputHandle.Dispose();
+                    }
+
+                    // Flush the read data for the Input Pipe writer
+                    var flushResult = await Input.Writer.FlushAsync();
+
+                    // If the pipe was closed, we are done reading, 
+                    if (flushResult.IsCompleted || flushResult.IsCancelled)
+                    {
+                        _doneReading = true;
+                    }
+                }
+
+                // Complete the input writer as we are done reading the request body.
+                Input.Writer.Complete();
+            }
+            catch (Exception ex)
+            {
+                Output.Reader.Complete(ex);
+                Input.Writer.Complete(ex);
+            }
+        }
+
+        private async Task WriteLoopAsync()
+        {
+            try
+            {
+                while (true)
+                {
+                    // Reading is done, so we will await all reads from the output pipe
+                    var readResult = await Output.Reader.ReadAsync();
+
+                    // Get data from pipe
                     var buffer = readResult.Buffer;
                     var consumed = buffer.End;
 
@@ -338,7 +447,6 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
                         // If the output pipe is termniated, cancel the request.
                         if (readResult.IsCancelled)
                         {
-                            _doneWriting = true;
                             break;
                         }
 
@@ -354,140 +462,55 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
                         }
                         else
                         {
-                            // Flush of zero bytes
+                            // Flush of zero bytes will 
                             await FlushToIISAsync();
                         }
-                    }
-                    catch (Exception ex)
-                    {
-                        throw ex;
                     }
                     finally
                     {
                         // Always Advance the data pointer to the end of the buffer.
                         Output.Reader.AdvanceTo(buffer.End);
                     }
-                }
 
-               
-                // Check if there was an upgrade. If there is, we will replace the request and response bodies with
-                // two seperate loops
-                await CheckForUpgrade();
-
-                // Now we handle the read. 
-                var wb = Input.Writer.GetMemory();
-                _inputHandle = wb.Retain(true);
-
-                try
-                {
-                    // Lock around invoking ReadFromIISAsync as we don't want to call CancelIo
-                    // when calling read
-                    var read = await ReadFromIISAsync(wb.Length);
-
-                    // read value of 0 == done reading
-                    // read value of -1 == read cancelled, continue trying to read
-                    // but don't advance the pipe
-                    if (read == 0)
+                    // Check if there was an upgrade. If there is, we will replace the request and response bodies with
+                    // two seperate loops
+                    if (_upgradeTcs?.TrySetResult(null) == true)
                     {
-                        _doneReading = true;
-                    }
-                    else if (read != -1)
-                    {
-                        Input.Writer.Advance(read);
+                        // The Input pipe has already been completed at this point
+                        // Create a new Input pipe for websockets
+                        Input = new Pipe(new PipeOptions(_memoryPool, readerScheduler: PipeScheduler.ThreadPool, minimumSegmentSize: MinAllocBufferSize));
+
+                        await StartBidirectionalStream();
+
+                        // Input and Output will be closed in StartBidirectionalStream.
+                        // We can return at this point.
+                        return;
                     }
                 }
-                finally
-                {
-                    // Always commit any changes to the Input pipe
-                    Input.Writer.Commit();
-                    _inputHandle.Dispose();
-                }
 
-                // Flush the read data for the Input Pipe writer
-                var flushResult = await Input.Writer.FlushAsync();
-
-                // If the pipe was closed, we are done reading, 
-                if (flushResult.IsCompleted || flushResult.IsCancelled)
-                {
-                    _doneReading = true;
-                }
-
-                // We are done reading now, set _reading to false.
-                // _reading may already be set to false through cancellation, but it is okay to be redundant here.
-                lock(_stateSync)
-                {
-                    _reading = false;
-                }
+                // Close the output pipe as we are done reading from it.
+                Output.Reader.Complete();
             }
-
-            // Complete the input writer as we are done reading the request body.
-            Input.Writer.Complete();
-        }
-
-        private async Task WriteLoopAsync()
-        {
-            // At this point, reading is done, so we will await all reads from the output pipe
-            while (true)
+            catch (Exception ex)
             {
-                // Always await every write as we are done reading.
-                var readResult = await Output.Reader.ReadAsync();
-
-                // Get data from pipe
-                var buffer = readResult.Buffer;
-                var consumed = buffer.End;
-
-                try
-                {
-                    // If the output pipe is termniated, cancel the request.
-                    if (readResult.IsCancelled)
-                    {
-                        break;
-                    }
-
-                    if (!buffer.IsEmpty)
-                    {
-                        // Write to IIS buffers
-                        // Guaranteed to write the entire buffer to IIS
-                        await WriteToIISAsync(buffer);
-                    }
-                    else if (readResult.IsCompleted)
-                    {
-                        break;
-                    }
-                    else
-                    {
-                        // Flush of zero bytes will 
-                        await FlushToIISAsync();
-                    }
-                }
-                finally
-                {
-                    // Always Advance the data pointer to the end of the buffer.
-                    Output.Reader.AdvanceTo(buffer.End);
-                }
-                await CheckForUpgrade();
+                Output.Reader.Complete(ex);
             }
-
-            // Close the output pipe as we are done reading from it.
-            Output.Reader.Complete();
         }
 
         private unsafe IISAwaitable FlushToIISAsync()
         {
             // Calls flush 
-            lock(_stateSync)
+            var hr = 0;
+            hr = NativeMethods.http_flush_response_bytes(_pInProcessHandler, out var fCompletionExpected);
+            if (!fCompletionExpected)
             {
-                var hr = 0;
-                hr = NativeMethods.http_flush_response_bytes(_pInProcessHandler, out var fCompletionExpected);
-                if (!fCompletionExpected)
-                {
-                    _operation.Complete(hr, 0);
-                }
+                _operation.Complete(hr, 0);
             }
               
             return _operation;
         }
 
+        // Always called from witin a lock
         private void DisableReads()
         {
             // To avoid concurrent reading and writing, if we have a pending read,
@@ -732,7 +755,6 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
                 }
                 else
                 {
-                    _reading = true;
                     var hr = NativeMethods.http_read_request_bytes(
                            _pInProcessHandler,
                            (byte*)_inputHandle.Pointer,
@@ -742,6 +764,10 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
                     if (!fCompletionExpected)
                     {
                         _operation.Complete(hr, dwReceivedBytes);
+                    }
+                    else
+                    {
+                        _reading = true;
                     }
                 }
 
@@ -873,6 +899,7 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
             Action continuation;
             lock (_stateSync)
             {
+                _reading = false;
                 continuation = _operation.GetCompletion(hr, cbBytes);
             }
 

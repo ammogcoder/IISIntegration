@@ -85,12 +85,12 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
                 // The app is finished and there should be nobody reading from the request pipe
                 Input.Reader.Complete();
 
-                Task readWriteTask;
+                Task processBodiesTask;
                 lock(_createReadWriteBodySync)
                 {
-                    readWriteTask = _readWriteTask;
+                    processBodiesTask = _processBodiesTask;
                 }
-                await readWriteTask;
+                await processBodiesTask;
             }
             return success;
         }
