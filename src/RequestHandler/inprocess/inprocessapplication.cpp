@@ -627,6 +627,8 @@ IN_PROCESS_APPLICATION::SetEnvironementVariablesOnWorkerProcess(
         m_pConfig->QueryWindowsAuthEnabled(),
         m_pConfig->QueryBasicAuthEnabled(),
         m_pConfig->QueryAnonymousAuthEnabled(),
+        FALSE,
+        FALSE,
         &pHashTable)))
     {
         goto Finished;

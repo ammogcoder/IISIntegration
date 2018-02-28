@@ -760,6 +760,8 @@ SERVER_PROCESS::StartProcess(
             m_fWindowsAuthEnabled,
             m_fBasicAuthEnabled,
             m_fAnonymousAuthEnabled,
+            TRUE,
+            g_fWebSocketSupported,
             &pHashTable)))
         {
             pStrStage = L"InitEnvironmentVariablesTable";

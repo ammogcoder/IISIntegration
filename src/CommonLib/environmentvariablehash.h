@@ -7,6 +7,7 @@
 #define HOSTING_STARTUP_ASSEMBLIES_NAME             L"ASPNETCORE_HOSTINGSTARTUPASSEMBLIES="
 #define HOSTING_STARTUP_ASSEMBLIES_VALUE            L"Microsoft.AspNetCore.Server.IISIntegration"
 #define ASPNETCORE_IIS_AUTH_ENV_STR                 L"ASPNETCORE_IIS_HTTPAUTH="
+#define ASPNETCORE_IIS_WEBSOCKETS_SUPPORTED_ENV_STR L"ASPNETCORE_IIS_WEBSOCKETS_SUPPORTED="
 #define ASPNETCORE_IIS_AUTH_WINDOWS                 L"windows;"
 #define ASPNETCORE_IIS_AUTH_BASIC                   L"basic;"
 #define ASPNETCORE_IIS_AUTH_ANONYMOUS               L"anonymous;"
@@ -297,6 +298,8 @@ public:
         BOOL                            fWindowsAuthEnabled,
         BOOL                            fBasicAuthEnabled,
         BOOL                            fAnonymousAuthEnabled,
+        BOOL                            fAddWebsocketEnvironmentVariable,
+        BOOL                            fWebsocketsEnabled,
         ENVIRONMENT_VAR_HASH**          ppEnvironmentVarTable
     )
     {
@@ -305,8 +308,10 @@ public:
         DWORD   dwResult, dwError;
         STRU    strIisAuthEnvValue;
         STACK_STRU(strStartupAssemblyEnv, 1024);
+        STACK_STRU(strIISWebsocketEnvValue, 40);
         ENVIRONMENT_VAR_ENTRY* pHostingEntry = NULL;
         ENVIRONMENT_VAR_ENTRY* pIISAuthEntry = NULL;
+        ENVIRONMENT_VAR_ENTRY* pIISWebsocketEntry = NULL;
         ENVIRONMENT_VAR_HASH* pEnvironmentVarTable = NULL;
 
         pEnvironmentVarTable = new ENVIRONMENT_VAR_HASH();
@@ -371,6 +376,44 @@ public:
             FAILED(hr = pEnvironmentVarTable->InsertRecord(pIISAuthEntry)))
         {
             goto Finished;
+        }
+
+        // Websockets
+        if (fAddWebsocketEnvironmentVariable)
+        {
+            pEnvironmentVarTable->FindKey((PWSTR)ASPNETCORE_IIS_WEBSOCKETS_SUPPORTED_ENV_STR, &pIISAuthEntry);
+            if (pIISWebsocketEntry != NULL)
+            {
+                // user defined ASPNETCORE_IIS_HTTPAUTH in configuration, wipe it off
+                pIISWebsocketEntry->Dereference();
+                pEnvironmentVarTable->DeleteKey((PWSTR)ASPNETCORE_IIS_WEBSOCKETS_SUPPORTED_ENV_STR);
+            }
+            if (fWebsocketsEnabled)
+            {
+                if (FAILED(hr = strIISWebsocketEnvValue.Copy(L"true")))
+                {
+                    goto Finished;
+                }
+            }
+            else
+            {
+                if (FAILED(hr = strIISWebsocketEnvValue.Copy(L"false")))
+                {
+                    goto Finished;
+                }
+            }
+
+            pIISWebsocketEntry = new ENVIRONMENT_VAR_ENTRY();
+            if (pIISWebsocketEntry == NULL)
+            {
+                hr = E_OUTOFMEMORY;
+                goto Finished;
+            }
+            if (FAILED(hr = pIISWebsocketEntry->Initialize(ASPNETCORE_IIS_WEBSOCKETS_SUPPORTED_ENV_STR, strIISWebsocketEnvValue.QueryStr())) ||
+                FAILED(hr = pEnvironmentVarTable->InsertRecord(pIISWebsocketEntry)))
+            {
+                goto Finished;
+            }
         }
 
         // Compiler is complaining about conversion between PCWSTR and PWSTR here.
