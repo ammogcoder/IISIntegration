@@ -397,19 +397,23 @@ APPLICATION_MANAGER::ShutDownApplication(
 
     APPLICATION* pApplication = pEntry->QueryApplication();
 
-    // Reference the application first
-    pApplication->ReferenceApplication();
+    // pApplication can be NULL due to app_offline
+    if (pApplication != NULL)
+    {
+        // Reference the application first
+        pApplication->ReferenceApplication();
 
-    // Reset application pointer to NULL
-    // The destructor of ApplictionInfo will not call ShutDown again
-    pEntry->ResetApplication();
-    HANDLE hThread = CreateThread(
-        NULL,       // default security attributes
-        0,          // default stack size
-        (LPTHREAD_START_ROUTINE)DoShutDownApplication,
-        pApplication,       // thread function arguments
-        0,          // default creation flags
-        NULL);      // receive thread identifier
+        // Reset application pointer to NULL
+        // The destructor of ApplictionInfo will not call ShutDown again
+        pEntry->ResetApplication();
+        HANDLE hThread = CreateThread(
+            NULL,       // default security attributes
+            0,          // default stack size
+            (LPTHREAD_START_ROUTINE)DoShutDownApplication,
+            pApplication,       // thread function arguments
+            0,          // default creation flags
+            NULL);      // receive thread identifier
 
-    CloseHandle(hThread);
+        CloseHandle(hThread);
+    }
 }
