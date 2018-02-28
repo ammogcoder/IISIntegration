@@ -23,13 +23,13 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
         private IISAwaitable _writeWebSocketsOperation;
         private TaskCompletionSource<object> _upgradeTcs;
 
-        private async Task StartBidirectionalStream()
+        private Task StartBidirectionalStream()
         {
             // IIS allows for websocket support and duplex channels only on Win8 and above
             // This allows us to have two tasks for reading the request and writing the response
             var readWebsocketTask = ReadWebSockets();
             var writeWebsocketTask = WriteWebSockets();
-            await Task.WhenAll(readWebsocketTask, writeWebsocketTask);
+            return Task.WhenAll(readWebsocketTask, writeWebsocketTask);
         }
 
         public async Task UpgradeAsync()

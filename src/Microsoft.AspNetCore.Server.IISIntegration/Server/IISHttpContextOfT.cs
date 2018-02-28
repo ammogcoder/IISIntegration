@@ -86,7 +86,7 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
                 Input.Reader.Complete();
 
                 Task processBodiesTask;
-                lock(_createReadWriteBodySync)
+                lock (_createReadWriteBodySync)
                 {
                     processBodiesTask = _processBodiesTask;
                 }

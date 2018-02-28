@@ -98,10 +98,9 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
 
         private async Task WriteAsyncAwaited(ArraySegment<byte> data, CancellationToken cancellationToken)
         {
-            await InitializeResponseAwaited(data.Count);
-
             // WriteAsyncAwaited is only called for the first write to the body.
             // Ensure headers are flushed if Write(Chunked)Async isn't called.
+            await InitializeResponseAwaited(data.Count);
 
             Task writeTask;
             lock (_stateSync)
@@ -138,6 +137,8 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
             lock (_stateSync)
             {
                 // We don't want to read if there is data available in the output pipe
+                // Therefore, we mark the current operation as cancelled to allow for the read
+                // to be requeued.
                 if (Output.Reader.TryRead(out var result) && !result.Buffer.IsEmpty)
                 {
                     _operation.Complete(hr: IISServerConstants.HResultCancelIO, cbBytes: 0);
@@ -151,6 +152,8 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
                            length,
                            out var dwReceivedBytes,
                            out bool fCompletionExpected);
+                    // if we complete the read synchronously, there is no need to set the reading flag
+                    // as there is no cancelable operation.
                     if (!fCompletionExpected)
                     {
                         _operation.Complete(hr, dwReceivedBytes);
@@ -167,76 +170,73 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
 
         private unsafe IISAwaitable WriteToIISAsync(ReadOnlyBuffer<byte> buffer)
         {
-            lock (_stateSync)
+            var fCompletionExpected = false;
+            var hr = 0;
+            var nChunks = 0;
+
+            if (buffer.IsSingleSegment)
             {
-                var fCompletionExpected = false;
-                var hr = 0;
-                var nChunks = 0;
-
-                if (buffer.IsSingleSegment)
-                {
-                    nChunks = 1;
-                }
-                else
-                {
-                    foreach (var memory in buffer)
-                    {
-                        nChunks++;
-                    }
-                }
-
-                if (buffer.IsSingleSegment)
-                {
-                    var pDataChunks = stackalloc HttpApiTypes.HTTP_DATA_CHUNK[1];
-
-                    fixed (byte* pBuffer = &MemoryMarshal.GetReference(buffer.First.Span))
-                    {
-                        ref var chunk = ref pDataChunks[0];
-
-                        chunk.DataChunkType = HttpApiTypes.HTTP_DATA_CHUNK_TYPE.HttpDataChunkFromMemory;
-                        chunk.fromMemory.pBuffer = (IntPtr)pBuffer;
-                        chunk.fromMemory.BufferLength = (uint)buffer.Length;
-                        hr = NativeMethods.http_write_response_bytes(_pInProcessHandler, pDataChunks, nChunks, out fCompletionExpected);
-                    }
-                }
-                else
-                {
-                    // REVIEW: Do we need to guard against this getting too big? It seems unlikely that we'd have more than say 10 chunks in real life
-                    var pDataChunks = stackalloc HttpApiTypes.HTTP_DATA_CHUNK[nChunks];
-                    var currentChunk = 0;
-
-                    // REVIEW: We don't really need this list since the memory is already pinned with the default pool,
-                    // but shouldn't assume the pool implementation right now. Unfortunately, this causes a heap allocation...
-                    var handles = new MemoryHandle[nChunks];
-
-                    foreach (var b in buffer)
-                    {
-                        ref var handle = ref handles[currentChunk];
-                        ref var chunk = ref pDataChunks[currentChunk];
-
-                        handle = b.Retain(true);
-
-                        chunk.DataChunkType = HttpApiTypes.HTTP_DATA_CHUNK_TYPE.HttpDataChunkFromMemory;
-                        chunk.fromMemory.BufferLength = (uint)b.Length;
-                        chunk.fromMemory.pBuffer = (IntPtr)handle.Pointer;
-
-                        currentChunk++;
-                    }
-
-                    hr = NativeMethods.http_write_response_bytes(_pInProcessHandler, pDataChunks, nChunks, out fCompletionExpected);
-                    // Free the handles
-                    foreach (var handle in handles)
-                    {
-                        handle.Dispose();
-                    }
-                }
-
-                if (!fCompletionExpected)
-                {
-                    _operation.Complete(hr, 0);
-                }
-                return _operation;
+                nChunks = 1;
             }
+            else
+            {
+                foreach (var memory in buffer)
+                {
+                    nChunks++;
+                }
+            }
+
+            if (buffer.IsSingleSegment)
+            {
+                var pDataChunks = stackalloc HttpApiTypes.HTTP_DATA_CHUNK[1];
+
+                fixed (byte* pBuffer = &MemoryMarshal.GetReference(buffer.First.Span))
+                {
+                    ref var chunk = ref pDataChunks[0];
+
+                    chunk.DataChunkType = HttpApiTypes.HTTP_DATA_CHUNK_TYPE.HttpDataChunkFromMemory;
+                    chunk.fromMemory.pBuffer = (IntPtr)pBuffer;
+                    chunk.fromMemory.BufferLength = (uint)buffer.Length;
+                    hr = NativeMethods.http_write_response_bytes(_pInProcessHandler, pDataChunks, nChunks, out fCompletionExpected);
+                }
+            }
+            else
+            {
+                // REVIEW: Do we need to guard against this getting too big? It seems unlikely that we'd have more than say 10 chunks in real life
+                var pDataChunks = stackalloc HttpApiTypes.HTTP_DATA_CHUNK[nChunks];
+                var currentChunk = 0;
+
+                // REVIEW: We don't really need this list since the memory is already pinned with the default pool,
+                // but shouldn't assume the pool implementation right now. Unfortunately, this causes a heap allocation...
+                var handles = new MemoryHandle[nChunks];
+
+                foreach (var b in buffer)
+                {
+                    ref var handle = ref handles[currentChunk];
+                    ref var chunk = ref pDataChunks[currentChunk];
+
+                    handle = b.Retain(true);
+
+                    chunk.DataChunkType = HttpApiTypes.HTTP_DATA_CHUNK_TYPE.HttpDataChunkFromMemory;
+                    chunk.fromMemory.BufferLength = (uint)b.Length;
+                    chunk.fromMemory.pBuffer = (IntPtr)handle.Pointer;
+
+                    currentChunk++;
+                }
+
+                hr = NativeMethods.http_write_response_bytes(_pInProcessHandler, pDataChunks, nChunks, out fCompletionExpected);
+                // Free the handles
+                foreach (var handle in handles)
+                {
+                    handle.Dispose();
+                }
+            }
+
+            if (!fCompletionExpected)
+            {
+                _operation.Complete(hr, 0);
+            }
+            return _operation;
         }
 
         private unsafe IISAwaitable FlushToIISAsync()
@@ -256,7 +256,6 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
         {
             try
             {
-
                 while (!_doneReading)
                 {
                     // First we check if there is anything to write from the Output pipe
@@ -269,13 +268,6 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
 
                         try
                         {
-                            // If the output pipe is terminated, cancel the request.
-                            if (readResult.IsCancelled)
-                            {
-                                _doneWriting = true;
-                                break;
-                            }
-
                             if (!buffer.IsEmpty)
                             {
                                 // Write to IIS buffers
@@ -322,16 +314,18 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
                         var read = await ReadFromIISAsync(memory.Length);
 
                         // read value of 0 == done reading
-                        // read value of -1 == read cancelled, continue trying to read
-                        // but don't advance the pipe
+                        // read value of -1 == read cancelled, still allowed to read but we
+                        // need a write to occur first. 
                         if (read == 0)
                         {
                             _doneReading = true;
+                            continue;
                         }
-                        else if (read != -1)
+                        else if (read == -1)
                         {
-                            Input.Writer.Advance(read);
+                            continue;
                         }
+                        Input.Writer.Advance(read);
                     }
                     finally
                     {
@@ -427,5 +421,20 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
                 Output.Reader.Complete(ex);
             }
         }
+
+        // Always called from within a lock
+        private void DisableReads()
+        {
+            // To avoid concurrent reading and writing, if we have a pending read,
+            // we must cancel it.
+            // _reading will always be false if we upgrade to websockets, so we don't need to check wasUpgrade
+            // Also, we set _reading to false after cancelling to detect redundant calls
+            if (_reading)
+            {
+                _reading = false;
+                NativeMethods.http_cancel_io(_pInProcessHandler);
+            }
+        }
+
     }
 }

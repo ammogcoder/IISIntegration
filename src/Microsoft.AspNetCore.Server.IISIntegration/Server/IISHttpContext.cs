@@ -201,20 +201,6 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
             }
         }
 
-        // Always called from witin a lock
-        private void DisableReads()
-        {
-            // To avoid concurrent reading and writing, if we have a pending read,
-            // we must cancel it.
-            // _reading will always be false if we upgrade to websockets, so we don't need to check wasUpgrade
-            // Also, we set _reading to false after cancelling to detect redundant calls
-            if (!_doneReading && _reading)
-            {
-                _reading = false;
-                NativeMethods.http_cancel_io(_pInProcessHandler);
-            }
-        }
-
         public Task InitializeResponse(int firstWriteByteCount)
         {
             if (HasResponseStarted)
