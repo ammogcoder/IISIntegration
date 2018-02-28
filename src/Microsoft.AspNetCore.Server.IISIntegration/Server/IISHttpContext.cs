@@ -201,16 +201,16 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
             }
         }
 
-        public Task InitializeResponse(int firstWriteByteCount)
+        public async Task InitializeResponse(int firstWriteByteCount)
         {
             if (HasResponseStarted)
             {
-                return Task.CompletedTask;
+                return;
             }
 
             if (_onStarting != null)
             {
-                return InitializeResponseAwaited(firstWriteByteCount);
+                await InitializeResponseAwaited(firstWriteByteCount);
             }
 
             if (_applicationException != null)
@@ -218,9 +218,7 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
                 ThrowResponseAbortedException();
             }
 
-            ProduceStart(appCompleted: false);
-
-            return Task.CompletedTask;
+            await ProduceStart(appCompleted: false);
         }
 
         private async Task InitializeResponseAwaited(int firstWriteByteCount)
@@ -232,7 +230,7 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
                 ThrowResponseAbortedException();
             }
 
-            ProduceStart(appCompleted: false);
+            await ProduceStart(appCompleted: false);
         }
 
         private void ThrowResponseAbortedException()
@@ -240,7 +238,7 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
             throw new ObjectDisposedException("Unhandled application exception", _applicationException);
         }
 
-        private void ProduceStart(bool appCompleted)
+        private async Task ProduceStart(bool appCompleted)
         {
             if (HasResponseStarted)
             {
@@ -250,6 +248,8 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
             HasResponseStarted = true;
 
             SendResponseHeaders(appCompleted);
+
+            await Output.FlushAsync();
 
             StartProcessingRequestAndResponseBody();
         }
@@ -290,7 +290,7 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
 
         private async Task ProduceEndAwaited()
         {
-            ProduceStart(appCompleted: true);
+            await ProduceStart(appCompleted: true);
 
             // Force flush
             await Output.FlushAsync();
@@ -339,6 +339,7 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
                     }
                 }
             }
+
         }
 
         public void Abort()

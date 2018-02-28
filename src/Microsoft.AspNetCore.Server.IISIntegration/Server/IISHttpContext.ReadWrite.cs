@@ -87,8 +87,8 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
             // 1. Swap the order to Output.FlushAsync and InitializeResponse (which will start the read/write loop)
             // 2. Call FlushAsync() inside IHttpUpgradeFeature.UpgradeAsync(). This unfortunately will cause
             //    ReadAsync to read 0 bytes before upgrading.
-            await Output.FlushAsync(cancellationToken);
             await InitializeResponse(0);
+            await Output.FlushAsync(cancellationToken);
         }
 
         public void StartProcessingRequestAndResponseBody()

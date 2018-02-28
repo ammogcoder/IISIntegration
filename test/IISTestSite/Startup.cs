@@ -41,6 +41,7 @@ namespace IISTestSite
             app.Map("/ReadAndWriteEcho", ReadAndWriteEcho);
             app.Map("/ReadAndWriteEchoTwice", ReadAndWriteEchoTwice);
             app.Map("/ReadAndWriteSlowConnection", ReadAndWriteSlowConnection);
+            app.Map("/WebsocketRequest", WebsocketRequest);
         }
 
         private void ServerVariable(IApplicationBuilder app)
@@ -407,5 +408,11 @@ namespace IISTestSite
                 await context.Response.WriteAsync("hello world");
             }
         }
+
+        private void WebsocketRequest(IApplicationBuilder obj)
+        {
+            throw new NotImplementedException();
+        }
+
     }
 }
