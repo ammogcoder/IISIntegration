@@ -59,7 +59,7 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
         /// <returns></returns>
         public Task WriteAsync(ArraySegment<byte> data, CancellationToken cancellationToken = default(CancellationToken))
         {
-            if (!HasResponseStarted)
+            if (!_hasResponseStarted)
             {
                 return WriteAsyncAwaited(data, cancellationToken);
             }
@@ -76,7 +76,7 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
         /// </summary>
         /// <param name="cancellationToken"></param>
         /// <returns></returns>
-        public async Task FlushAsync(CancellationToken cancellationToken = default(CancellationToken))
+        public Task FlushAsync(CancellationToken cancellationToken = default(CancellationToken))
         {
             // Issue: On first flush for websockets, we need to flush the headers such that
             // IIS will know that an upgrade occured.
@@ -87,8 +87,15 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
             // 1. Swap the order to Output.FlushAsync and InitializeResponse (which will start the read/write loop)
             // 2. Call FlushAsync() inside IHttpUpgradeFeature.UpgradeAsync(). This unfortunately will cause
             //    ReadAsync to read 0 bytes before upgrading.
-            await InitializeResponse(0);
-            await Output.FlushAsync(cancellationToken);
+            if (!_hasResponseStarted)
+            {
+                return WriteAsyncAwaited(new ArraySegment<byte>(new byte[0], 0, 0), cancellationToken);
+            }
+            lock (_stateSync)
+            {
+                DisableReads();
+                return Output.FlushAsync(cancellationToken);
+            }
         }
 
         public void StartProcessingRequestAndResponseBody()
@@ -443,6 +450,5 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
                 NativeMethods.http_cancel_io(_pInProcessHandler);
             }
         }
-
     }
 }

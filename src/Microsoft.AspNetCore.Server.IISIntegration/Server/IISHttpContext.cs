@@ -35,6 +35,7 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
         private bool _reading; // To know whether we are currently in a read operation.
         private bool _doneReading;
         private bool _doneWriting;
+        private volatile bool _hasResponseStarted;
 
         private int _statusCode;
         private string _reasonPhrase;
@@ -156,7 +157,7 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
         public string QueryString { get; set; }
         public string RawTarget { get; set; }
         public CancellationToken RequestAborted { get; set; }
-        public bool HasResponseStarted { get; set; }
+        public bool HasResponseStarted => _hasResponseStarted;
         public IPAddress RemoteIpAddress { get; set; }
         public int RemotePort { get; set; }
         public IPAddress LocalIpAddress { get; set; }
@@ -180,7 +181,7 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
             get { return _statusCode; }
             set
             {
-                if (HasResponseStarted)
+                if (_hasResponseStarted)
                 {
                     ThrowResponseAlreadyStartedException(nameof(StatusCode));
                 }
@@ -193,7 +194,7 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
             get { return _reasonPhrase; }
             set
             {
-                if (HasResponseStarted)
+                if (_hasResponseStarted)
                 {
                     ThrowResponseAlreadyStartedException(nameof(ReasonPhrase));
                 }
@@ -201,25 +202,25 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
             }
         }
 
-        public async Task InitializeResponse(int firstWriteByteCount)
-        {
-            if (HasResponseStarted)
-            {
-                return;
-            }
+        //public async Task InitializeResponse(int firstWriteByteCount)
+        //{
+        //    if (HasResponseStarted)
+        //    {
+        //        return;
+        //    }
 
-            if (_onStarting != null)
-            {
-                await InitializeResponseAwaited(firstWriteByteCount);
-            }
+        //    if (_onStarting != null)
+        //    {
+        //        await InitializeResponseAwaited(firstWriteByteCount);
+        //    }
 
-            if (_applicationException != null)
-            {
-                ThrowResponseAbortedException();
-            }
+        //    if (_applicationException != null)
+        //    {
+        //        ThrowResponseAbortedException();
+        //    }
 
-            await ProduceStart(appCompleted: false);
-        }
+        //    await ProduceStart(appCompleted: false);
+        //}
 
         private async Task InitializeResponseAwaited(int firstWriteByteCount)
         {
@@ -240,16 +241,22 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
 
         private async Task ProduceStart(bool appCompleted)
         {
-            if (HasResponseStarted)
+            if (_hasResponseStarted)
             {
                 return;
             }
 
-            HasResponseStarted = true;
+            _hasResponseStarted = true;
 
             SendResponseHeaders(appCompleted);
 
-            await Output.FlushAsync();
+            Task flushTask;
+            lock (_stateSync)
+            {
+                DisableReads();
+                flushTask = Output.FlushAsync();
+            }
+            await flushTask;
 
             StartProcessingRequestAndResponseBody();
         }
@@ -258,7 +265,7 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
         {
             if (_applicationException != null)
             {
-                if (HasResponseStarted)
+                if (_hasResponseStarted)
                 {
                     // We can no longer change the response, so we simply close the connection.
                     return Task.CompletedTask;
@@ -273,7 +280,7 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
                 }
             }
 
-            if (!HasResponseStarted)
+            if (!_hasResponseStarted)
             {
                 return ProduceEndAwaited();
             }
@@ -290,10 +297,25 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
 
         private async Task ProduceEndAwaited()
         {
-            await ProduceStart(appCompleted: true);
+            if (_hasResponseStarted)
+            {
+                return;
+            }
+
+            _hasResponseStarted = true;
+
+            SendResponseHeaders(true);
+            StartProcessingRequestAndResponseBody();
 
             // Force flush
-            await Output.FlushAsync();
+            Task flushAsync;
+
+            lock (_stateSync)
+            {
+                DisableReads();
+                flushAsync = Output.FlushAsync();
+            }
+            await flushAsync;
         }
 
         public unsafe void SendResponseHeaders(bool appCompleted)
@@ -353,7 +375,7 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
         {
             lock (_onStartingSync)
             {
-                if (HasResponseStarted)
+                if (_hasResponseStarted)
                 {
                     throw new InvalidOperationException("Response already started");
                 }
