@@ -80,6 +80,7 @@ namespace Microsoft.AspNetCore.Hosting
             bool isWebSocketsSupported;
             if (!bool.TryParse(websocketsSupported, out isWebSocketsSupported))
             {
+                // If the websocket support variable is not set, we will always fallback to assuming websockets are enabled.
                 isWebSocketsSupported = true;
             }
 

@@ -14,7 +14,7 @@ namespace Microsoft.AspNetCore.Server.IISIntegration.FunctionalTests
                 Path.Combine(AppDomain.CurrentDomain.BaseDirectory,
                 "..", // tfm
                 "..", // debug
-                "..", // obj
+                "..", // objs
                 "..", // projectfolder
                 "TestSites"));
         }

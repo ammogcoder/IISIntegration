@@ -125,9 +125,16 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
                 }
             }
 
+            // Remove the upgrade feature if websockets are not supported by ANCM. 
             if (!_isWebsocketsSupported)
             {
                 httpContext.Features.Set<IHttpUpgradeFeature>(null);
+                await httpContext.Response.WriteAsync("woot");
+            }
+            else
+            {
+                await httpContext.Response.WriteAsync("what");
+
             }
 
             await _next(httpContext);

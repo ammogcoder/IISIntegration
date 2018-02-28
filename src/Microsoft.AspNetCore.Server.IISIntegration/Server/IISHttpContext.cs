@@ -25,8 +25,8 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
     internal abstract partial class IISHttpContext : NativeRequestContext, IDisposable
     {
         private const int MinAllocBufferSize = 2048;
-
-        private static bool UpgradeAvailable = (Environment.OSVersion.Version >= new Version(6, 2));
+        // TODO make this static again.
+        private bool UpgradeAvailable = (Environment.OSVersion.Version >= new Version(6, 2));
 
         protected readonly IntPtr _pInProcessHandler;
 
@@ -139,9 +139,10 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
                 ResetFeatureCollection();
 
                 NativeMethods.http_get_server_variable(pInProcessHandler, WebSocketVersionString, out var webSocketsSupported);
-                if (string.IsNullOrEmpty(webSocketsSupported) && !UpgradeAvailable)
+                if (string.IsNullOrEmpty(webSocketsSupported))
                 {
                     _currentIHttpUpgradeFeature = null;
+                    UpgradeAvailable = false;
                 }
             }
 

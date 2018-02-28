@@ -35,6 +35,7 @@ namespace IISTestSite
             app.Map("/CheckEnvironmentLongValueVariable", CheckEnvironmentLongValueVariable);
             app.Map("/CheckAppendedEnvironmentVariable", CheckAppendedEnvironmentVariable);
             app.Map("/CheckRemoveAuthEnvironmentVariable", CheckRemoveAuthEnvironmentVariable);
+            app.Map("/UpgradeFeatureDetection", UpgradeFeatureDetection);
         }
 
         private void ServerVariable(IApplicationBuilder app)
@@ -323,6 +324,21 @@ namespace IISTestSite
             {
                 var variable = Environment.GetEnvironmentVariable("ASPNETCORE_IIS_HTTPAUTH");
                 await context.Response.WriteAsync(variable);
+            });
+        }
+
+        private void UpgradeFeatureDetection(IApplicationBuilder app)
+        {
+            app.Run(async ctx =>
+            {
+                if (ctx.Features.Get<IHttpUpgradeFeature>() != null)
+                {
+                    await ctx.Response.WriteAsync("Enabled");
+                }
+                else
+                {
+                    await ctx.Response.WriteAsync("Disabled");
+                }
             });
         }
     }

@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Server.IIS;
 using Microsoft.AspNetCore.Server.IISIntegration;
 
@@ -68,6 +69,15 @@ namespace NativeIISSample
                 foreach (var varName in IISServerVarNames)
                 {
                     await context.Response.WriteAsync(varName + ": " + context.GetIISServerVariable(varName) + Environment.NewLine);
+                }
+
+                if (context.Features.Get<IHttpUpgradeFeature>() != null)
+                {
+                    await context.Response.WriteAsync("Enabled");
+                }
+                else
+                {
+                    await context.Response.WriteAsync("Disabled");
                 }
             });
         }
