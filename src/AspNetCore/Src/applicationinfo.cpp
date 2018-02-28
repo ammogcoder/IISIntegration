@@ -147,8 +147,8 @@ APPLICATION_INFO::UpdateAppOfflineFileHandle()
                     strEventMsg.QueryStr());
             }
 
-            m_pApplication->ShutDown();
-            m_pApplication->DereferenceApplication();
+            // shut down application in another thread to not block FCN
+            APPLICATION_MANAGER::ShutDownApplication(this, NULL);
             m_pApplication = NULL;
         }
     }
