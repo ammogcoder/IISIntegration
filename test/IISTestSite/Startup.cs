@@ -409,10 +409,12 @@ namespace IISTestSite
             }
         }
 
-        private void WebsocketRequest(IApplicationBuilder obj)
+        private void WebsocketRequest(IApplicationBuilder app)
         {
-            throw new NotImplementedException();
+            app.Run(async context =>
+            {
+                await context.Response.WriteAsync("test");
+            });
         }
-
     }
 }
