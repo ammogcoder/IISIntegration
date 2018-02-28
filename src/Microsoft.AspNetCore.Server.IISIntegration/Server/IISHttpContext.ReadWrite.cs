@@ -78,8 +78,17 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
         /// <returns></returns>
         public async Task FlushAsync(CancellationToken cancellationToken = default(CancellationToken))
         {
-            await InitializeResponse(0);
+            // Issue: On first flush for websockets, we need to flush the headers such that
+            // IIS will know that an upgrade occured.
+            // If we don't have anything on the Output pipe, the TryRead in ReadAndWriteLoopAsync
+            // will fail and we will signal the upgradeTcs that we are upgrading. However, we still
+            // didn't flush.
+            // There are a few ways to fix it:
+            // 1. Swap the order to Output.FlushAsync and InitializeResponse (which will start the read/write loop)
+            // 2. Call FlushAsync() inside IHttpUpgradeFeature.UpgradeAsync(). This unfortunately will cause
+            //    ReadAsync to read 0 bytes before upgrading.
             await Output.FlushAsync(cancellationToken);
+            await InitializeResponse(0);
         }
 
         public void StartProcessingRequestAndResponseBody()
@@ -349,7 +358,6 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
             }
             catch (Exception ex)
             {
-                Output.Reader.Complete(ex);
                 Input.Writer.Complete(ex);
             }
         }

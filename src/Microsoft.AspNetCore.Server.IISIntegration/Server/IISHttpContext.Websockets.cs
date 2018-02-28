@@ -37,7 +37,6 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
             if (_upgradeTcs == null)
             {
                 _upgradeTcs = new TaskCompletionSource<object>(TaskCreationOptions.RunContinuationsAsynchronously);
-
                 // Flush any contents of the OutputPipe before upgrading to websockets.
                 await FlushAsync();
                 await _upgradeTcs.Task;

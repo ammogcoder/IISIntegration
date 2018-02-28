@@ -296,10 +296,10 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
             ReasonPhrase = ReasonPhrases.GetReasonPhrase(StatusCodes.Status101SwitchingProtocols);
             _readWebSocketsOperation = new IISAwaitable();
             _writeWebSocketsOperation = new IISAwaitable();
-
-            await UpgradeAsync();
-
             NativeMethods.http_enable_websockets(_pInProcessHandler);
+
+            // 
+            await UpgradeAsync();
 
             _wasUpgraded = true;
 
