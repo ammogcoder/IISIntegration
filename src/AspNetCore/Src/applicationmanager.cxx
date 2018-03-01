@@ -176,6 +176,7 @@ Finished:
             if (SUCCEEDED(strEventMsg.SafeSnwprintf(
                 ASPNETCORE_EVENT_ADD_APPLICATION_ERROR_MSG,
                 pszApplicationId,
+                pConfig->QueryHostingModel(),
                 hr)))
             {
                 UTILITY::LogEvent(g_hEventLog,

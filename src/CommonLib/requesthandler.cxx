@@ -12,11 +12,13 @@ REQUEST_HANDLER::REQUEST_HANDLER(
     m_pW3Context = pW3Context;
     m_pApplication = pApplication;
     m_pModuleId = *pModuleId;
+    m_pApplication->ReferenceApplication();
 }
 
 
 REQUEST_HANDLER::~REQUEST_HANDLER()
 {
+    m_pApplication->DereferenceApplication();
 }
 
 VOID

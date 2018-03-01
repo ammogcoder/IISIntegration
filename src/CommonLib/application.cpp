@@ -11,10 +11,18 @@ APPLICATION::APPLICATION(
     m_pConfig(pConfig),
     m_status(APPLICATION_STATUS::UNKNOWN)
 {
+    if (pConfig != NULL)
+    {
+        pConfig->ReferenceConfiguration();
+    }
 }
 
 APPLICATION::~APPLICATION()
 {
+    if (m_pConfig != NULL)
+    {
+        m_pConfig->DereferenceConfiguration();
+    }
 }
 
 APPLICATION_STATUS
