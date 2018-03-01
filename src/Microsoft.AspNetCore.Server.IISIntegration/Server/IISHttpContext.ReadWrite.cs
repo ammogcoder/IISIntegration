@@ -155,8 +155,10 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
                 // We don't want to read if there is data available in the output pipe
                 // Therefore, we mark the current operation as cancelled to allow for the read
                 // to be requeued.
-                if (Output.Reader.TryRead(out var result) && !result.Buffer.IsEmpty)
+                if (Output.Reader.TryRead(out var result))
                 {
+                    // If the buffer is empty, it is considered a write of zero.
+                    // we still want to cancel and allow the write to occur.
                     _operation.Complete(hr: IISServerConstants.HResultCancelIO, cbBytes: 0);
                     Output.Reader.AdvanceTo(result.Buffer.Start);
                 }
