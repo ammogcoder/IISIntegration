@@ -25,8 +25,8 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
     internal abstract partial class IISHttpContext : NativeRequestContext, IDisposable
     {
         private const int MinAllocBufferSize = 2048;
-        private const int PauseWriterThreshold = 65536;
-        private const int ResumeWriterTheshold = PauseWriterThreshold / 2;
+        private const int PauseWriterThreshold = 20;
+        private const int ResumeWriterTheshold = 20;
 
         private static bool UpgradeAvailable = (Environment.OSVersion.Version >= new Version(6, 2));
 
@@ -34,7 +34,6 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
 
         private bool _reading; // To know whether we are currently in a read operation.
         private bool _doneReading;
-        private bool _doneWriting;
         private volatile bool _hasResponseStarted;
 
         private int _statusCode;
@@ -202,7 +201,7 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
             }
         }
 
-        private async Task InitializeResponseAwaited(int firstWriteByteCount)
+        private async Task InitializeResponseAwaited()
         {
             await FireOnStarting();
 

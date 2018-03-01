@@ -26,7 +26,7 @@ namespace Microsoft.AspNetCore.Server.IIS.FunctionalTests
         [ConditionalFact]
         public async Task ReadAndWriteSynchronously()
         {
-            for (int i = 0; i < 10000; i++)
+            for (int i = 0; i < 100; i++)
             {
                 var content = new StringContent(new string('a', 100000));
                 var response = await _fixture.Client.PostAsync("ReadAndWriteSynchronously", content);

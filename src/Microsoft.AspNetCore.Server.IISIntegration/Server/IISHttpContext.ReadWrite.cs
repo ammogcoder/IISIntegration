@@ -89,7 +89,7 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
             //    ReadAsync to read 0 bytes before upgrading.
             if (!_hasResponseStarted)
             {
-                return WriteAsyncAwaited(new ArraySegment<byte>(new byte[0], 0, 0), cancellationToken);
+                return FlushAsyncAwaited(cancellationToken);
             }
             lock (_stateSync)
             {
@@ -112,11 +112,26 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
             }
         }
 
+        private async Task FlushAsyncAwaited(CancellationToken cancellationToken)
+        {
+            await InitializeResponseAwaited();
+
+            Task flushTask;
+            lock (_stateSync)
+            {
+                DisableReads();
+
+                // Want to guarantee that data has been written to the pipe before releasing the lock.
+                flushTask = Output.FlushAsync(cancellationToken: cancellationToken);
+            }
+            await flushTask;
+        }
+
         private async Task WriteAsyncAwaited(ArraySegment<byte> data, CancellationToken cancellationToken)
         {
             // WriteAsyncAwaited is only called for the first write to the body.
             // Ensure headers are flushed if Write(Chunked)Async isn't called.
-            await InitializeResponseAwaited(data.Count);
+            await InitializeResponseAwaited();
 
             Task writeTask;
             lock (_stateSync)
@@ -139,17 +154,12 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
 
             // If we are done writing, complete the output pipe and return
             // Input Pipe will be closed when ReadAndWriteLoopAsync returns
-            if (_doneWriting)
-            {
-                Output.Reader.Complete();
-                return;
-            }
-
             await WriteLoopAsync();
         }
 
         private unsafe IISAwaitable ReadFromIISAsync(int length)
         {
+            Action completion = null;
             lock (_stateSync)
             {
                 // We don't want to read if there is data available in the output pipe
@@ -159,7 +169,7 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
                 {
                     // If the buffer is empty, it is considered a write of zero.
                     // we still want to cancel and allow the write to occur.
-                    _operation.Complete(hr: IISServerConstants.HResultCancelIO, cbBytes: 0);
+                    completion = _operation.GetCompletion(hr: IISServerConstants.HResultCancelIO, cbBytes: 0);
                     Output.Reader.AdvanceTo(result.Buffer.Start);
                 }
                 else
@@ -174,16 +184,19 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
                     // as there is no cancelable operation.
                     if (!fCompletionExpected)
                     {
-                        _operation.Complete(hr, dwReceivedBytes);
+                        completion = _operation.GetCompletion(hr, dwReceivedBytes);
                     }
                     else
                     {
                         _reading = true;
                     }
                 }
-
-                return _operation;
             }
+
+            // Invoke the completion outside of the lock if the reead finished synchronously.
+            completion?.Invoke();
+
+            return _operation;
         }
 
         private unsafe IISAwaitable WriteToIISAsync(ReadOnlyBuffer<byte> buffer)
@@ -305,7 +318,6 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
                             }
                             else if (readResult.IsCompleted)
                             {
-                                _doneWriting = true;
                                 break;
                             }
                             else
