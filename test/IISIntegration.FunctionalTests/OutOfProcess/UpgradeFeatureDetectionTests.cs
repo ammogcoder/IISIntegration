@@ -23,7 +23,7 @@ namespace Microsoft.AspNetCore.Server.IISIntegration.FunctionalTests
         [Fact]
         public Task UpgradeFeatureDetectionEnabled_OutOfProcess_IISExpress_CoreClr_x64_Portable()
         {
-            return UpgradeFeatureDetectionDeployer(RuntimeFlavor.CoreClr, ApplicationType.Portable, "WebsocketsNotSupported.config", "Disabled");
+            return UpgradeFeatureDetectionDeployer(RuntimeFlavor.CoreClr, ApplicationType.Portable, "AppHostConfig/WebsocketsNotSupported.config", "Disabled");
         }
 
         [Fact]
