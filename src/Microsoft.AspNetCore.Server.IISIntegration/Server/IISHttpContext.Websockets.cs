@@ -182,7 +182,6 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
                         break;
                     }
                 }
-
                 Input.Writer.Complete();
             }
             catch (Exception ex)

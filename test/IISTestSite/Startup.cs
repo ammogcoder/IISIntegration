@@ -39,6 +39,7 @@ namespace IISTestSite
             app.Map("/CheckRemoveAuthEnvironmentVariable", CheckRemoveAuthEnvironmentVariable);
             app.Map("/ReadAndWriteSynchronously", ReadAndWriteSynchronously);
             app.Map("/ReadAndWriteEcho", ReadAndWriteEcho);
+            app.Map("/ReadAndWriteCopyToAsync", ReadAndWriteCopyToAsync);
             app.Map("/ReadAndWriteEchoTwice", ReadAndWriteEchoTwice);
             app.Map("/ReadAndWriteSlowConnection", ReadAndWriteSlowConnection);
             app.Map("/WebsocketRequest", WebsocketRequest);
@@ -414,6 +415,14 @@ namespace IISTestSite
             app.Run(async context =>
             {
                 await context.Response.WriteAsync("test");
+            });
+        }
+
+        private void ReadAndWriteCopyToAsync(IApplicationBuilder app)
+        {
+            app.Run(async context =>
+            {
+                await context.Request.Body.CopyToAsync(context.Response.Body);
             });
         }
     }

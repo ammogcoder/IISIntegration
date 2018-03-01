@@ -26,11 +26,14 @@ namespace Microsoft.AspNetCore.Server.IIS.FunctionalTests
         [ConditionalFact]
         public async Task ReadAndWriteSynchronously()
         {
-            var content = new StringContent(new string('a', 100000));
-            var response = await _fixture.Client.PostAsync("ReadAndWriteSynchronously", content);
-            var responseText = await response.Content.ReadAsStringAsync();
+            for (int i = 0; i < 10000; i++)
+            {
+                var content = new StringContent(new string('a', 100000));
+                var response = await _fixture.Client.PostAsync("ReadAndWriteSynchronously", content);
+                var responseText = await response.Content.ReadAsStringAsync();
 
-            Assert.Equal(expected: 110000, actual: responseText.Length);
+                Assert.Equal(expected: 110000, actual: responseText.Length);
+            }
         }
 
         [ConditionalFact]
@@ -39,6 +42,17 @@ namespace Microsoft.AspNetCore.Server.IIS.FunctionalTests
             var body = new string('a', 100000);
             var content = new StringContent(body);
             var response = await _fixture.Client.PostAsync("ReadAndWriteEcho", content);
+            var responseText = await response.Content.ReadAsStringAsync();
+
+            Assert.Equal(body, responseText);
+        }
+
+        [ConditionalFact]
+        public async Task ReadAndWriteCopyToAsync()
+        {
+            var body = new string('a', 100000);
+            var content = new StringContent(body);
+            var response = await _fixture.Client.PostAsync("ReadAndWriteCopyToAsync", content);
             var responseText = await response.Content.ReadAsStringAsync();
 
             Assert.Equal(body, responseText);

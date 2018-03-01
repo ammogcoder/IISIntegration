@@ -268,6 +268,17 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
             return _operation;
         }
 
+        /// <summary>
+        /// Main function for control flow with IIS.
+        /// Uses two Pipes (Input and Output) between application calls to Read/Write/FlushAsync
+        /// Control Flow:
+        /// Try to see if there is data written by the application code (using TryRead)
+        /// and write it to IIS.
+        /// Check if the connection has been upgraded and call StartBidirectionalStreams
+        /// if it has.
+        /// Await reading from IIS, which will be cancelled if application code calls Write/FlushAsync.
+        /// </summary>
+        /// <returns>The Reading and Writing task.</returns>
         public async Task ReadAndWriteLoopAsync()
         {
             try
@@ -313,7 +324,6 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
                     if (_upgradeTcs?.TrySetResult(null) == true)
                     {
                         await StartBidirectionalStream();
-
                         // Input and Output will be closed in StartBidirectionalStream.
                         // We can return at this point.
                         return;
@@ -369,6 +379,11 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
             }
         }
 
+        /// <summary>
+        /// Secondary function for control flow with IIS. This is only called once we are done
+        /// reading the request body. We now await reading from the Output pipe.
+        /// </summary>
+        /// <returns></returns>
         private async Task WriteLoopAsync()
         {
             try
@@ -411,21 +426,6 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
                         // Always Advance the data pointer to the end of the buffer.
                         Output.Reader.AdvanceTo(buffer.End);
                     }
-
-                    // Check if there was an upgrade. If there is, we will replace the request and response bodies with
-                    // two seperate loops
-                    if (_upgradeTcs?.TrySetResult(null) == true)
-                    {
-                        // The Input pipe has already been completed at this point
-                        // Create a new Input pipe for websockets
-                        Input = new Pipe(new PipeOptions(_memoryPool, readerScheduler: PipeScheduler.ThreadPool, minimumSegmentSize: MinAllocBufferSize));
-
-                        await StartBidirectionalStream();
-
-                        // Input and Output will be closed in StartBidirectionalStream.
-                        // We can return at this point.
-                        return;
-                    }
                 }
 
                 // Close the output pipe as we are done reading from it.
@@ -447,6 +447,7 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
             if (_reading)
             {
                 _reading = false;
+                // Calls IHttpContext->CancelIo(), which will cause the OnAsyncCompletion handler to fire.
                 NativeMethods.http_cancel_io(_pInProcessHandler);
             }
         }

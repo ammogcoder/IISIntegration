@@ -202,26 +202,6 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
             }
         }
 
-        //public async Task InitializeResponse(int firstWriteByteCount)
-        //{
-        //    if (HasResponseStarted)
-        //    {
-        //        return;
-        //    }
-
-        //    if (_onStarting != null)
-        //    {
-        //        await InitializeResponseAwaited(firstWriteByteCount);
-        //    }
-
-        //    if (_applicationException != null)
-        //    {
-        //        ThrowResponseAbortedException();
-        //    }
-
-        //    await ProduceStart(appCompleted: false);
-        //}
-
         private async Task InitializeResponseAwaited(int firstWriteByteCount)
         {
             await FireOnStarting();
@@ -307,7 +287,6 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
             SendResponseHeaders(true);
             StartProcessingRequestAndResponseBody();
 
-            // Force flush
             Task flushAsync;
 
             lock (_stateSync)

@@ -58,6 +58,7 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
             if (Volatile.Read(ref _requestAborted) == 0)
             {
                 await ProduceEnd();
+
             }
             else if (!HasResponseStarted)
             {
