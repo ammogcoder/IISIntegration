@@ -22,6 +22,7 @@ APPLICATION::~APPLICATION()
     if (m_pConfig != NULL)
     {
         m_pConfig->DereferenceConfiguration();
+        m_pConfig = NULL;
     }
 }
 

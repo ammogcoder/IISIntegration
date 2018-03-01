@@ -12,13 +12,20 @@ REQUEST_HANDLER::REQUEST_HANDLER(
     m_pW3Context = pW3Context;
     m_pApplication = pApplication;
     m_pModuleId = *pModuleId;
-    m_pApplication->ReferenceApplication();
+    if (m_pApplication != NULL)
+    {
+        m_pApplication->ReferenceApplication();
+    }
 }
 
 
 REQUEST_HANDLER::~REQUEST_HANDLER()
 {
-    m_pApplication->DereferenceApplication();
+    if (m_pApplication != NULL)
+    {
+        m_pApplication->DereferenceApplication();
+        m_pApplication = NULL;
+    }
 }
 
 VOID
@@ -42,5 +49,4 @@ REQUEST_HANDLER::DereferenceRequestHandler(
     {
         delete this;
     }
-
 }
