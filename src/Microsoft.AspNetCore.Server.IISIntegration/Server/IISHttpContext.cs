@@ -26,7 +26,7 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
     {
         private const int MinAllocBufferSize = 2048;
         // TODO make this static again.
-        private bool UpgradeAvailable = (Environment.OSVersion.Version >= new Version(6, 2));
+        private static bool? UpgradeAvailable;
 
         protected readonly IntPtr _pInProcessHandler;
 
@@ -138,11 +138,22 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
 
                 ResetFeatureCollection();
 
-                NativeMethods.http_get_server_variable(pInProcessHandler, WebSocketVersionString, out var webSocketsSupported);
-                if (string.IsNullOrEmpty(webSocketsSupported))
+                // Check if the Http upgrade feature is available in IIS.
+                // To check this, we can look at the server variable WEBSOCKET_VERSION
+                // And see if there is a version. Same check that Katana did:
+                // https://github.com/aspnet/AspNetKatana/blob/9f6e09af6bf203744feb5347121fe25f6eec06d8/src/Microsoft.Owin.Host.SystemWeb/OwinAppContext.cs#L125
+                if (!UpgradeAvailable.HasValue)
+                {
+                    // UpgradeAvailable is a static as we don't need to check the server variable for every request.
+                    // To enable the websocket module in IIS, it would trigger a configuration change which would recycle the worker
+                    // process, shutting down managed code.
+                    NativeMethods.http_get_server_variable(pInProcessHandler, WebSocketVersionString, out var webSocketsSupported);
+                    UpgradeAvailable = !string.IsNullOrEmpty(webSocketsSupported);
+                }
+
+                if (!UpgradeAvailable.Value)
                 {
                     _currentIHttpUpgradeFeature = null;
-                    UpgradeAvailable = false;
                 }
             }
 

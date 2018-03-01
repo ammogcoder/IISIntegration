@@ -50,7 +50,7 @@ namespace Microsoft.AspNetCore.Server.IISIntegration.FunctionalTests
                     ? "win7-x64"
                     : "win7-x86";
 
-                var deploymentParameters = new DeploymentParameters(Helpers.GetTestSitesPath(), serverType, runtimeFlavor, architecture)
+                var deploymentParameters = new DeploymentParameters(Helpers.GetOutOfProcessTestSitesPath(), serverType, runtimeFlavor, architecture)
                 {
                     ApplicationBaseUriHint = $"http://localhost:{port}",
                     EnvironmentName = "NtlmAuthentication", // Will pick the Start class named 'StartupNtlmAuthentication'

@@ -23,13 +23,13 @@ namespace Microsoft.AspNetCore.Server.IISIntegration.FunctionalTests
         [Fact]
         public Task UpgradeFeatureDetectionEnabled_IISExpress_CoreClr_x64_Portable()
         {
-            return UpgradeFeatureDetectionDeployer(RuntimeFlavor.CoreClr, ApplicationType.Portable, "WebsocketsNotSupported.config", "Disabled");
+            return UpgradeFeatureDetectionDeployer(RuntimeFlavor.CoreClr, ApplicationType.Portable, "AppHostConfig/WebsocketsNotSupported.config", "Disabled");
         }
 
         [Fact]
         public Task UpgradeFeatureDetectionDisabled_IISExpress_CoreClr_x64_Portable()
         {
-            return UpgradeFeatureDetectionDeployer(RuntimeFlavor.CoreClr, ApplicationType.Portable, "WebsocketsSupported.config", "Enabled");
+            return UpgradeFeatureDetectionDeployer(RuntimeFlavor.CoreClr, ApplicationType.Portable, "AppHostConfig/Http.config", "Enabled");
         }
 
         private async Task UpgradeFeatureDetectionDeployer(RuntimeFlavor runtimeFlavor, ApplicationType applicationType, string configPath, string expected)
@@ -41,14 +41,13 @@ namespace Microsoft.AspNetCore.Server.IISIntegration.FunctionalTests
             {
                 var logger = loggerFactory.CreateLogger("HelloWorldTest");
 
-                var deploymentParameters = new DeploymentParameters(Helpers.GetTestSitesPath(), serverType, runtimeFlavor, architecture)
+                var deploymentParameters = new DeploymentParameters(Helpers.GetInProcessTestSitesPath(), serverType, runtimeFlavor, architecture)
                 {
                     EnvironmentName = "UpgradeFeatureDetection", // Will pick the Start class named 'StartupHelloWorld',
                     ServerConfigTemplateContent = (serverType == ServerType.IISExpress) ? File.ReadAllText(configPath) : null,
                     SiteName = "HttpTestSite", // This is configured in the Http.config
-                    TargetFramework = runtimeFlavor == RuntimeFlavor.Clr ? "net461" : "netcoreapp2.0",
+                    TargetFramework = "netcoreapp2.0",
                     ApplicationType = applicationType,
-                    HostingModel = HostingModel.InProcess,
                     Configuration =
 #if DEBUG
                         "Debug"
@@ -65,7 +64,7 @@ namespace Microsoft.AspNetCore.Server.IISIntegration.FunctionalTests
                     // Request to base address and check if various parts of the body are rendered & measure the cold startup time.
                     var response = await RetryHelper.RetryRequest(() =>
                     {
-                        return deploymentResult.HttpClient.GetAsync(string.Empty);
+                        return deploymentResult.HttpClient.GetAsync("UpgradeFeatureDetection");
                     }, logger, deploymentResult.HostShutdownToken, retryCount: 30);
 
                     var responseText = await response.Content.ReadAsStringAsync();
