@@ -145,16 +145,24 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
         }
 
         // ConsumeAsync is called when either the first read or first write is done. 
-        // There are two modes for reading and writing to the request/response bodies.
+        // There are two modes for reading and writing to the request/response bodies without upgrade.
         // 1. Await all reads and try to read from the Output pipe
         // 2. Done reading and await all writes.
+        // If the request is upgraded, we will start bidirectional streams for the input and output.
         private async Task ConsumeAsync()
         {
             await ReadAndWriteLoopAsync();
 
-            // If we are done writing, complete the output pipe and return
-            // Input Pipe will be closed when ReadAndWriteLoopAsync returns
-            await WriteLoopAsync();
+            // The ReadAndWriteLoop can return due to being upgraded. Check if _wasUpgraded is true to determine
+            // whether we go to a bidirectional stream or only write.
+            if (_wasUpgraded)
+            {
+                await StartBidirectionalStream();
+            }
+            else
+            {
+                await WriteLoopAsync();
+            }
         }
 
         private unsafe IISAwaitable ReadFromIISAsync(int length)
@@ -337,9 +345,8 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
                     // two seperate loops. These will still be using the same Input and Output pipes here.
                     if (_upgradeTcs?.TrySetResult(null) == true)
                     {
-                        await StartBidirectionalStream();
-                        // Input and Output will be closed in StartBidirectionalStream.
-                        // We can return at this point.
+                        // _wasUpgraded will be set at this point, exit the loop and we will check if we upgraded or not
+                        // when going to next read/write type.
                         return;
                     }
 
