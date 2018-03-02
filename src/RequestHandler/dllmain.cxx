@@ -19,6 +19,7 @@ HINTERNET           g_hWinhttpSession = NULL;
 IHttpServer *       g_pHttpServer = NULL;
 HINSTANCE           g_hWinHttpModule;
 HANDLE              g_hEventLog = NULL;
+PCSTR               g_szDebugLabel = "ASPNET_CORE_MODULE";
 
 
 VOID
