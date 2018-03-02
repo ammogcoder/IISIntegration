@@ -402,7 +402,7 @@ SERVER_PROCESS::OutputEnvironmentVariables
         pszCurrentVariable = pszNextVariable;
     }
     // append the remaining env variable in hash table
-    pEnvironmentVarTable->Apply(ENVIRONMENT_VAR_HASH::CopyToMultiSz, pmszOutput);
+    pEnvironmentVarTable->Apply(ENVIRONMENT_VAR_HELPERS::CopyToMultiSz, pmszOutput);
 
 Finished:
     if (pszEnvironmentVariables != NULL)
@@ -755,13 +755,13 @@ SERVER_PROCESS::StartProcess(
             goto Failure;
         }
 
-        if (FAILED(hr = ENVIRONMENT_VAR_HASH::InitEnvironmentVariablesTable(
+        if (FAILED(hr = ENVIRONMENT_VAR_HELPERS::InitEnvironmentVariablesTable(
             m_pEnvironmentVarTable,
             m_fWindowsAuthEnabled,
             m_fBasicAuthEnabled,
             m_fAnonymousAuthEnabled,
-            TRUE,
             g_fWebSocketSupported,
+            APP_HOSTING_MODEL::HOSTING_OUT_PROCESS,
             &pHashTable)))
         {
             pStrStage = L"InitEnvironmentVariablesTable";

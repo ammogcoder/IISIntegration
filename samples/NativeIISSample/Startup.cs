@@ -71,13 +71,14 @@ namespace NativeIISSample
                     await context.Response.WriteAsync(varName + ": " + context.GetIISServerVariable(varName) + Environment.NewLine);
                 }
 
+                await context.Response.WriteAsync(Environment.NewLine);
                 if (context.Features.Get<IHttpUpgradeFeature>() != null)
                 {
-                    await context.Response.WriteAsync("Enabled");
+                    await context.Response.WriteAsync("Websocket feature is enabled.");
                 }
                 else
                 {
-                    await context.Response.WriteAsync("Disabled");
+                    await context.Response.WriteAsync("Websocket feature is disabled.");
                 }
             });
         }

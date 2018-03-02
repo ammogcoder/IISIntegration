@@ -622,20 +622,20 @@ IN_PROCESS_APPLICATION::SetEnvironementVariablesOnWorkerProcess(
 {
     HRESULT hr = S_OK;
     ENVIRONMENT_VAR_HASH* pHashTable = NULL;
-    if (FAILED(hr = ENVIRONMENT_VAR_HASH::InitEnvironmentVariablesTable(
+    if (FAILED(hr = ENVIRONMENT_VAR_HELPERS::InitEnvironmentVariablesTable(
         m_pConfig->QueryEnvironmentVariables(),
         m_pConfig->QueryWindowsAuthEnabled(),
         m_pConfig->QueryBasicAuthEnabled(),
         m_pConfig->QueryAnonymousAuthEnabled(),
-        FALSE,
-        FALSE,
+        FALSE, // Flag is ignored for inprocess.
+        APP_HOSTING_MODEL::HOSTING_IN_PROCESS,
         &pHashTable)))
     {
         goto Finished;
     }
 
-    pHashTable->Apply(ENVIRONMENT_VAR_HASH::AppendEnvironmentVariables, NULL);
-    pHashTable->Apply(ENVIRONMENT_VAR_HASH::SetEnvironmentVariables, NULL);
+    pHashTable->Apply(ENVIRONMENT_VAR_HELPERS::AppendEnvironmentVariables, NULL);
+    pHashTable->Apply(ENVIRONMENT_VAR_HELPERS::SetEnvironmentVariables, NULL);
 Finished:
     return hr;
 }

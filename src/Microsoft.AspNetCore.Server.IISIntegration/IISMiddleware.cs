@@ -30,6 +30,7 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
         private readonly IApplicationLifetime _applicationLifetime;
         private readonly bool _isWebsocketsSupported;
 
+        // Can't break public API, so creating a second constructor to propagate the isWebsocketsSupported flag.
         public IISMiddleware(RequestDelegate next, ILoggerFactory loggerFactory, IOptions<IISOptions> options, string pairingToken, IAuthenticationSchemeProvider authentication, IApplicationLifetime applicationLifetime)
             : this(next, loggerFactory, options, pairingToken, true, authentication, applicationLifetime)
         {
@@ -125,7 +126,8 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
                 }
             }
 
-            // Remove the upgrade feature if websockets are not supported by ANCM. 
+            // Remove the upgrade feature if websockets are not supported by ANCM.
+            // The feature must be removed on a per request basis as the Upgrade feature exists per request.
             if (!_isWebsocketsSupported)
             {
                 httpContext.Features.Set<IHttpUpgradeFeature>(null);

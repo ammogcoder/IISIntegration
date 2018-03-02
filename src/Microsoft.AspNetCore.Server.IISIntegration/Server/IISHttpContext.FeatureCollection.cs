@@ -185,7 +185,8 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
 
         bool IHttpResponseFeature.HasStarted => HasResponseStarted;
 
-        bool IHttpUpgradeFeature.IsUpgradableRequest => UpgradeAvailable.HasValue ? UpgradeAvailable.Value : true; // if for 
+        // The UpgradeAvailable Feature is set
+        bool IHttpUpgradeFeature.IsUpgradableRequest => UpgradeAvailable.HasValue ? UpgradeAvailable.Value : true; 
 
         bool IFeatureCollection.IsReadOnly => false;
 

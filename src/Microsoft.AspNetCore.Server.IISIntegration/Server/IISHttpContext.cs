@@ -25,7 +25,6 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
     internal abstract partial class IISHttpContext : NativeRequestContext, IDisposable
     {
         private const int MinAllocBufferSize = 2048;
-        // TODO make this static again.
         private static bool? UpgradeAvailable;
 
         protected readonly IntPtr _pInProcessHandler;
@@ -142,6 +141,8 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
                 // To check this, we can look at the server variable WEBSOCKET_VERSION
                 // And see if there is a version. Same check that Katana did:
                 // https://github.com/aspnet/AspNetKatana/blob/9f6e09af6bf203744feb5347121fe25f6eec06d8/src/Microsoft.Owin.Host.SystemWeb/OwinAppContext.cs#L125
+                // Actively not locking here as acquiring a lock on every request will hurt perf more than checking the
+                // server variables a few extra times if a bunch of requests hit the server at the same time.
                 if (!UpgradeAvailable.HasValue)
                 {
                     // UpgradeAvailable is a static as we don't need to check the server variable for every request.

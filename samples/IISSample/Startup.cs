@@ -72,7 +72,16 @@ namespace IISSample
                     var value = vars[key];
                     await context.Response.WriteAsync(key + ": " + value + Environment.NewLine);
                 }
+
                 await context.Response.WriteAsync(Environment.NewLine);
+                if (context.Features.Get<IHttpUpgradeFeature>() != null)
+                {
+                    await context.Response.WriteAsync("Websocket feature is enabled.");
+                }
+                else
+                {
+                    await context.Response.WriteAsync("Websocket feature is disabled");
+                }
             });
         }
 

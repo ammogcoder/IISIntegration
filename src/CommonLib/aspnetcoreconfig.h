@@ -43,13 +43,6 @@
 
 #include "stdafx.h"
 
-enum APP_HOSTING_MODEL
-{
-    HOSTING_UNKNOWN = 0,
-    HOSTING_IN_PROCESS,
-    HOSTING_OUT_PROCESS
-};
-
 class ASPNETCORE_CONFIG : IHttpStoredContext
 {
 public:

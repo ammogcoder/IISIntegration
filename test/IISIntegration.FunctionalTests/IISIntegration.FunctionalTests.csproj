@@ -13,17 +13,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <None Remove="Inprocess\Http.config" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Content Include="AppHostConfig\WebsocketsNotSupported.config" />
-    <Content Include="AppHostConfig\Http.config" />
-    <Content Include="AppHostConfig\Https.config" />
-    <Content Include="AppHostConfig\NtlmAuthentation.config" />
-  </ItemGroup>
-
-  <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Server.IntegrationTesting" Version="$(MicrosoftAspNetCoreServerIntegrationTestingPackageVersion)" />
     <PackageReference Include="Microsoft.Extensions.Logging" Version="$(MicrosoftExtensionsLoggingPackageVersion)" />
     <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="$(MicrosoftExtensionsLoggingConsolePackageVersion)" />
