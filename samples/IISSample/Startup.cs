@@ -80,7 +80,7 @@ namespace IISSample
                 }
                 else
                 {
-                    await context.Response.WriteAsync("Websocket feature is disabled");
+                    await context.Response.WriteAsync("Websocket feature is disabled.");
                 }
             });
         }

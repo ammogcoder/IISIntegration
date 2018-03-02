@@ -185,7 +185,7 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
 
         bool IHttpResponseFeature.HasStarted => HasResponseStarted;
 
-        // The UpgradeAvailable Feature is set
+        // The UpgradeAvailable Feature is set on the first request to the server. 
         bool IHttpUpgradeFeature.IsUpgradableRequest => UpgradeAvailable.HasValue ? UpgradeAvailable.Value : true; 
 
         bool IFeatureCollection.IsReadOnly => false;

@@ -7,14 +7,6 @@
 
 #define WIN32_LEAN_AND_MEAN             // Exclude rarely-used stuff from Windows headers
 
-
-enum APP_HOSTING_MODEL
-{
-    HOSTING_UNKNOWN = 0,
-    HOSTING_IN_PROCESS,
-    HOSTING_OUT_PROCESS
-};
-
 #include <Windows.h>
 #include <httpserv.h>
 #include <wchar.h>
