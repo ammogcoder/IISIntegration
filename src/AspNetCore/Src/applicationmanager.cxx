@@ -254,7 +254,7 @@ APPLICATION_MANAGER::RecycleApplication(
     dwPreviousCounter = m_pApplicationInfoHash->Count();
 
     // We don't want to hold the lock for long time as it will block all incoming requests
-    // Make a shallow copy of existing hashtable as we may nee to remove nodes
+    // Make a shallow copy of existing hashtable as we may need to remove nodes
     // This also make sure application shutdown will not be called inside the lock
     m_pApplicationInfoHash->Apply(APPLICATION_INFO_HASH::ReferenceCopyToTable, static_cast<PVOID>(table));
     DBG_ASSERT(dwPreviousCounter == table->Count());
@@ -332,6 +332,7 @@ Finished:
         STACK_STRU(strEventMsg, 256);
         if (SUCCEEDED(strEventMsg.SafeSnwprintf(
             ASPNETCORE_EVENT_RECYCLE_FAILURE_CONFIGURATION_MSG,
+            pszApplicationId,
             hr)))
         {
             UTILITY::LogEvent(g_hEventLog,
